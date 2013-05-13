@@ -48,9 +48,9 @@ Options:
   # Split a lane into multiple entries, one for each (pair of) file(s) found using the search-
   # string specified for a given lane. Each lane is named by adding a number to the end of the
   # given barcode.
-  SplitLanesByFilenames: no
+  SplitLanesByFilenames: yes
   # Compression format used when storing FASTQ files (either 'gz' for GZip or 'bz2' for BZip2)
-  CompressionFormat: gz
+  CompressionFormat: bz2
 
   """ % timestamp
 
@@ -58,7 +58,7 @@ Options:
         print """  # Settings for aligners supported by the pipeline
   AdapterRemoval:
     # Which version of AdapterRemoval to use ('v1.4' or 'v1.5+')
-    Version: 1.4
+    Version: 'v1.5+'
 
   Aligners:
     # Choice of aligner software to use, either "BWA" or "Bowtie2"
@@ -113,11 +113,11 @@ Options:
                      #   Location: {Destination}/{Target}.{Genome}.bam
     - Realigned BAM  # Generate indel-realigned BAM using the GATK Indel realigner
                      #   Location: {Destination}/{Target}.{Genome}.realigned.bam
-    - mapDamage      # Generate mapDamage plot for each (unrealigned) library
+#    - mapDamage      # Generate mapDamage plot for each (unrealigned) library
                      #   Location: {Destination}/{Target}.{Genome}.mapDamage/{Library}/
     - Coverage       # Generate coverage information for the raw BAM (wo/ indel realignment)
                      #   Location: {Destination}/{Target}.{Genome}.coverage
-    - Depths         # Generate histogram of number of sites with a given read-depth
+#    - Depths         # Generate histogram of number of sites with a given read-depth
                      #   Location: {Destination}/{Target}.{Genome}.depths
     - Summary        # Generate target summary (uses statistics from raw BAM)
                      #   Location: {Destination}/{Target}.summary
@@ -136,11 +136,12 @@ Options:
 # names are given in the BED file, the intervals are merged by contig, and
 # named after the contig with a wildcard ("*") appended.
 Prefixes:
-  NAME_OF_PREFIX:
-    Path: PATH_TO_PREFIX
-#    Label: # "mito" or "nucl"
-#    AreasOfInterest:
-#      NAME: PATH_TO_BEDFILE
+  Equus_cab_mito3:
+    Path: 000_Indices/Equus_cab_mito3.fasta
+    Label: mitochondrial
+  Equus_cab_nucl_wChrUn:
+    Path: 000_Indices/Equus_cab_nucl_wChrUn.fasta
+    Label: nuclear
 
 # Prefixes can also be specified using wildcards, by adding a wildcard to the
 # end of the prefix name, as shown below. The name itself is ignored, and each

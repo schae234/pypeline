@@ -71,10 +71,10 @@ _DEFAULTS = {
         # Split a lane into multiple entries, one for each (pair of) file(s)
         "SplitLanesByFilenames" : False,
         # Format to use when compressing FASTQ files ("gz" or "bz2")
-        "CompressionFormat" : "gz",
+        "CompressionFormat" : "bz2",
 
         "AdapterRemoval" : {
-            "Version" : "v1.4",
+            "Version" : "v1.5+",
         },
 
         # Which aliger/mapper to use (BWA/Bowtie2)
