@@ -28,7 +28,7 @@ from pypeline.atomicset import ParallelCmds, SequentialCmds
 from pypeline.atomicparams import AtomicJavaParams
 
 from pypeline.nodes.picard import ValidateBAMNode, concatenate_input_bams
-from pypeline.nodes.samtools import BAMIndexNode
+from pypeline.nodes.samtools import BAMIndexNode, SAMTOOLS_VERSION
 from pypeline.common.utilities import safe_coerce_to_tuple
 from pypeline.common.fileutils import swap_ext, add_postfix
 
@@ -56,7 +56,6 @@ class MapDamageNode(CommandNode):
                             IN_STDIN        = cat_obj,
                             OUT_FREQ_3p     = os.path.join(output_directory, "3pGtoA_freq.txt"),
                             OUT_FREQ_5p     = os.path.join(output_directory, "5pCtoT_freq.txt"),
-                            OUT_COMP_GENOME = os.path.join(output_directory, "dnacomp_genome.csv"),
                             OUT_COMP_USER   = os.path.join(output_directory, "dnacomp.txt"),
                             OUT_PLOT_FRAG   = os.path.join(output_directory, "Fragmisincorporation_plot.pdf"),
                             OUT_PLOT_LEN    = os.path.join(output_directory, "Length_plot.pdf"),
@@ -110,15 +109,15 @@ class MapDamageRescaleNode(CommandNode):
         CommandNode._teardown(self, config, temp)
 
 
-class FilterUniqueBAMNode(CommandNode):
+class FilterCollapsedBAMNode(CommandNode):
     def __init__(self, config, input_bams, output_bam, dependencies = ()):
         cat_cmds, cat_obj = concatenate_input_bams(config, input_bams)
-        filteruniq = AtomicCmd(["FilterUniqueBAM", "--PIPE", "--library"],
+        filteruniq = AtomicCmd(["bam_rmdup_collapsed", "--remove-duplicates"],
                                IN_STDIN   = cat_obj,
                                OUT_STDOUT = output_bam)
 
         command     = ParallelCmds(cat_cmds + [filteruniq])
-        description =  "<FilterUniqueBAM: %s>" % (self._desc_files(input_bams),)
+        description =  "<FilterCollapsedBAM: %s>" % (self._desc_files(input_bams),)
         CommandNode.__init__(self,
                              command      = command,
                              description  = description,

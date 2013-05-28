@@ -38,6 +38,19 @@ def safe_coerce_to_tuple(value):
         return (value,)
 
 
+def safe_coerce_to_frozenset(value):
+    """Takes a value which be a single object, or an an iterable and returns the content wrapped in
+    a frozenset. In the case of strings, the original string object is returned in a tuple, and not
+    as a frozenset of chars."""
+    if isinstance(value, types.StringTypes):
+        return frozenset((value,))
+
+    try:
+        return frozenset(value)
+    except TypeError:
+        return frozenset((value,))
+
+
 def try_cast(value, cast_to):
     try:
         return cast_to(value)
@@ -136,3 +149,9 @@ def group_by_pred(pred, iterable):
 def fragment(size, lstlike):
     """Faster alternative to grouper for lists/strings."""
     return (lstlike[i : i + size] for i in range(0, len(lstlike), size))
+
+
+def cumsum(lst, initial = 0):
+    for item in lst:
+        initial += item
+        yield initial

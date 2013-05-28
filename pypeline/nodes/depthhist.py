@@ -86,7 +86,8 @@ class DepthHistogramNode(Node):
         self._handle = {}
 
         if len(self._input_files) == 1:
-            os.symlink(os.path.abspath(self._input_files[0]), pipe)
+            filename = iter(self._input_files).next()
+            os.symlink(os.path.abspath(filename), pipe)
         else:
             os.mkfifo(pipe)
             procs, _ = concatenate_input_bams(config, self._input_files, out = pipe)
@@ -139,6 +140,9 @@ class DepthHistogramNode(Node):
             intervals, region_names = self._get_intervals(temp, samfile)
             mapping   = self._open_handles(temp, samfile, intervals)
             for read in samfile:
+                if read.is_unmapped or read.is_duplicate:
+                    continue
+
                 rg = dict(read.tags).get("RG")
                 for handle in mapping[rg]:
                     handle.write(read)
@@ -195,7 +199,7 @@ class DepthHistogramNode(Node):
         rows = [["Name", "Sample", "Library", "Contig", "Size", "MaxDepth"] + ["MD_%03i" % i for i in xrange(1, _MAX_DEPTH + 1)]]
         for sample, libraries in sorted(table.iteritems(), key = first):
             for library, regions in sorted(libraries.iteritems(), key = first):
-                for (region, size) in sorted(region_names.items(), key = lambda x: x or ""):
+                for (region, size) in sorted(region_names.items(), key = first):
                     key = (self._target_name, sample, library, region)
                     row = [("*" if value is None else value) for value in key]
 
@@ -296,7 +300,7 @@ class DepthHistogramNode(Node):
 
                         name   = fields[3]
                         length = int(fields[2]) - int(fields[1])
-                        region_names[name] = regions_names.get(name, 0) + length
+                        region_names[name] = region_names.get(name, 0) + length
             else:
                 for seq in samfile.header["SQ"]:
                     handle.write("{SN}\t{LN}\n".format(**seq))

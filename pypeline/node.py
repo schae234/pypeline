@@ -21,13 +21,14 @@
 # SOFTWARE.
 #
 import os
+import sys
 # pickle is used instead of cPickle, because pickle
 # produces more informative errors on failure
 import pickle
 import traceback
 
 import pypeline.common.fileutils as fileutils
-from pypeline.common.utilities import safe_coerce_to_tuple
+from pypeline.common.utilities import safe_coerce_to_frozenset
 
 # Imported from, in order to allow monkeypatching in tests
 # FIXME: Make create_temp_dir a 'with' object
@@ -47,7 +48,6 @@ class NodeUnhandledException(NodeError):
     pass
 
 
-
 class Node(object):
     def __init__(self, description = None, threads = 1,
                  input_files = (), output_files = (),
@@ -55,11 +55,11 @@ class Node(object):
                  requirements = (), subnodes = (), dependencies = ()):
 
         self.__description   = description
-        self.input_files     = safe_coerce_to_tuple(input_files)
-        self.output_files    = safe_coerce_to_tuple(output_files)
-        self.executables     = safe_coerce_to_tuple(executables)
-        self.auxiliary_files = safe_coerce_to_tuple(auxiliary_files)
-        self.requirements    = safe_coerce_to_tuple(requirements)
+        self.input_files     = safe_coerce_to_frozenset(input_files)
+        self.output_files    = safe_coerce_to_frozenset(output_files)
+        self.executables     = safe_coerce_to_frozenset(executables)
+        self.auxiliary_files = safe_coerce_to_frozenset(auxiliary_files)
+        self.requirements    = safe_coerce_to_frozenset(requirements)
 
         self.threads         = int(threads)
         self.subnodes        = frozenset()
@@ -111,31 +111,35 @@ class Node(object):
         Prior to calling these functions, a temporary dir is created using the
         'temp_root' prefix from the config object. Both the config object and
         the temporary dir are passed to the above functions. The temporary
-        dir is removed after _teardown is called, and all expected files 
+        dir is removed after _teardown is called, and all expected files
         should have been removed/renamed at that point.
 
         Any non-NodeError exception raised in this function is wrapped in a
         NodeUnhandledException, which includes a full backtrace. This is needed
         to allow showing these in the main process."""
-        
+
         try:
+            temp = None
             temp = create_temp_dir(config.temp_root)
-            
+
             self._setup(config, temp)
             self._run(config, temp)
             self._teardown(config, temp)
 
             rmdir(temp)
-        except NodeError:
-            raise
-        except Exception:
-            raise NodeUnhandledException(traceback.format_exc())
+        except NodeError, error:
+            self._write_error_log(temp, error)
+            raise error
+        except Exception, error:
+            self._write_error_log(temp, error)
+            error = NodeUnhandledException(traceback.format_exc())
+            raise error
 
 
     def _setup(self, _config, _temp):
-        """Is called prior to '_run()' by 'run()'. Any code used to copy/link files, 
+        """Is called prior to '_run()' by 'run()'. Any code used to copy/link files,
         or other steps needed to ready the node for running may be carried out in this
-        function. Checks that required input files exist, and raises an NodeError if 
+        function. Checks that required input files exist, and raises an NodeError if
         this is not the case."""
         if fileutils.missing_executables(self.executables):
             raise NodeError("Executable(s) does not exist for command: %s" \
@@ -158,11 +162,28 @@ class Node(object):
         return "<%s>" % (self.__class__.__name__,)
 
 
+    def _write_error_log(self, temp, error):
+        if temp and os.path.isdir(temp):
+            with open(os.path.join(temp, "pipe.errors"), "w") as handle:
+                handle.write("Command          = %s\n" % " ".join(sys.argv))
+                handle.write("CWD              = %s\n\n" % os.getcwd())
+                handle.write("Node             = %s\n" % str(self))
+                handle.write("Threads          = %i\n" % self.threads)
+
+                prefix =   "\n                   "
+                handle.write("Input files      = %s\n" % (prefix.join(sorted(self.input_files))))
+                handle.write("Output files     = %s\n" % (prefix.join(sorted(self.output_files))))
+                handle.write("Auxiliary files  = %s\n" % (prefix.join(sorted(self.auxiliary_files))))
+                handle.write("Executables      = %s\n" % (prefix.join(sorted(self.executables))))
+
+                handle.write("\nErrors =\n%s\n" % error)
+
+
     def _collect_nodes(self, nodes, description):
         if nodes is None:
             return frozenset()
 
-        nodes = frozenset(safe_coerce_to_tuple(nodes))
+        nodes = safe_coerce_to_frozenset(nodes)
         bad_nodes = [node for node in nodes if not isinstance(node, Node)]
 
         if bad_nodes:
@@ -220,8 +241,9 @@ class CommandNode(Node):
 
         return_codes = self._command.join()
         if any(return_codes):
-            raise NodeError("Error(s) running '%s':\n\tReturn-codes: %s\n\tTemporary directory: '%s'" \
-                             % (self._command, return_codes, temp))
+            desc = "\n\t".join(str(self._command).split("\n"))
+            raise NodeError("Error(s) running Node:\n\tReturn-codes: %s\n\tTemporary directory: '%s'\n\n\t%s" \
+                             % (return_codes, temp, desc))
 
 
     def _teardown(self, config, temp):

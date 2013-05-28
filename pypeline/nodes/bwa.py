@@ -184,7 +184,7 @@ class PE_BWANode(CommandNode):
         sampe.push_positional("%(TEMP_IN_FILE_2)s")
         sampe.set_parameter("-P", fixed = False)
 
-        order, commands = _process_output(sampe, output_file, reference)
+        order, commands = _process_output(sampe, output_file, reference, run_fixmate = True)
         commands["sampe"] = sampe
         commands["sampe_in_1"] = sampe_in_1
         commands["sampe_in_2"] = sampe_in_2
@@ -264,27 +264,27 @@ class BWASWNode(CommandNode):
                              dependencies = parameters.dependencies)
 
 
-def _process_output(stdin, output_file, reference):
+def _process_output(stdin, output_file, reference, run_fixmate = False):
     convert = AtomicParams("safeSAM2BAM")
     convert.set_parameter("--flag-as-sorted")
+    convert.set_parameter("-F", "0x4", sep = "", fixed = False) # Remove misses
     convert.set_paths(IN_STDIN    = stdin,
                       OUT_STDOUT  = AtomicCmd.PIPE,
-                      CHECK_PYSAM = PYSAM_VERSION)
+                      CHECK_PYSAM = PYSAM_VERSION,
+                      CHECK_SAMTOOLS = SAMTOOLS_VERSION)
 
-    flt = AtomicParams(["samtools", "view"])
-    flt.push_positional("-")
-    flt.set_parameter("-b") # Output BAM
-    flt.set_parameter("-u") # Output uncompressed BAM
-    flt.set_parameter("-F", "0x4", sep = "", fixed = False) # Remove misses
-    flt.set_paths(IN_STDIN  = convert,
-                  OUT_STDOUT = AtomicCmd.PIPE,
-                  CHECK_SAM = SAMTOOLS_VERSION)
+    fixmate = None
+    if run_fixmate:
+        fixmate = AtomicParams(("samtools", "fixmate", "-", "-"),
+                               IN_STDIN   = convert,
+                               OUT_STDOUT = AtomicCmd.PIPE,
+                               CHECK_SAMTOOLS = SAMTOOLS_VERSION)
 
     sort = AtomicParams(("samtools", "sort"))
     sort.set_parameter("-o") # Output to STDOUT on completion
     sort.push_positional("-")
     sort.push_positional("%(TEMP_OUT_BAM)s")
-    sort.set_paths(IN_STDIN     = flt,
+    sort.set_paths(IN_STDIN     = fixmate or convert,
                    OUT_STDOUT   = AtomicCmd.PIPE,
                    TEMP_OUT_BAM = "sorted",
                    CHECK_SAM = SAMTOOLS_VERSION)
@@ -298,11 +298,14 @@ def _process_output(stdin, output_file, reference):
                     OUT_STDOUT = output_file,
                     CHECK_SAM = SAMTOOLS_VERSION)
 
-    order = ["convert", "filter", "sort", "calmd"]
+    order = ["convert", "sort", "calmd"]
     dd = {"convert" : convert,
-          "filter"  : flt,
           "sort"    : sort,
           "calmd"   : calmd}
+
+    if run_fixmate:
+        order.insert(1, "fixmate")
+        dd["fixmate"] = fixmate
 
     return order, dd
 

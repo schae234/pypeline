@@ -52,7 +52,7 @@ class NodeGraph:
         self._check_file_dependencies(self._reverse_dependencies)
         ui.print_info("  - Checking for required executables ...", file = sys.stderr)
         self._check_required_executables(self._reverse_dependencies)
-        ui.print_info("")
+        ui.print_info("", file = sys.stderr)
 
         self._states = {}
         self.refresh_states()
@@ -156,7 +156,7 @@ class NodeGraph:
         except OSError, e:
             # Typically hapens if base input files are removed, causing a node that
             # 'is_done' to call modified_after on missing files in 'is_outdated'
-            ui.print_err("OSError checking state of Node: %s" % e)
+            ui.print_err("OSError checking state of Node: %s" % e, file = sys.stderr)
             state = NodeGraph.ERROR
         self._states[node] = state
 
@@ -187,19 +187,20 @@ class NodeGraph:
 
     @classmethod
     def _check_file_dependencies(cls, nodes):
-        files = ("input_files", "output_files", "auxiliary_files")
-        files = dict((key, collections.defaultdict(list)) for key in files)
+        files = ("input_files", "output_files")
+        files = dict((key, collections.defaultdict(set)) for key in files)
+        # Auxiliary files are treated as input files
+        files["auxiliary_files"] = files["input_files"]
 
         for node in nodes:
             for (key, dd) in files.iteritems():
                 for filename in getattr(node, key):
-                    dd[filename].append(node)
+                    dd[filename].add(node)
 
         max_messages = range(_MAX_ERROR_MESSAGES)
         error_messages = []
         error_messages.extend(zip(max_messages, cls._check_output_files(files["output_files"])))
         error_messages.extend(zip(max_messages, cls._check_input_dependencies(files["input_files"], files["output_files"], nodes)))
-        error_messages.extend(zip(max_messages, cls._check_input_dependencies(files["auxiliary_files"], files["output_files"], nodes)))
 
         if error_messages:
             messages = []
@@ -215,30 +216,34 @@ class NodeGraph:
     def _check_output_files(cls, output_files):
         for (filename, nodes) in output_files.iteritems():
             if (len(nodes) > 1):
-                yield "%i nodes clobber a file: %s:\n\t%s" \
-                    % (len(nodes), filename, "\n\t".join(str(node) for node in nodes))
+               nodes = _summarize_nodes(nodes)
+               yield "Multiple nodes create the same (clobber) output-file:" + \
+                                "\n\tFilename: %s\n\tNodes: %s" \
+                                % (filename, "\n\t       ".join(nodes))
 
 
     @classmethod
     def _check_input_dependencies(cls, input_files, output_files, nodes):
         dependencies = cls._collect_dependencies(nodes, {})
 
-        for (filename, nodes) in input_files.iteritems():
+        for (filename, nodes) in sorted(input_files.items(), key = lambda v: v[0]):
             if (filename in output_files):
-                producer = output_files[filename][0]
+                producers = output_files[filename]
+                bad_nodes = set()
                 for consumer in nodes:
-                    if producer not in dependencies[consumer]:
-                        yield "Node depends on dynamically created file, but not on the node creating it:" + \
-                            "\n\tDependent node: %s\n\tFilename: %s\n\tCreated by: %s" \
-                            % (consumer, filename, producer)
-            elif not os.path.exists(filename):
-                nodes = list(sorted(set(map(str, nodes))))
-                if len(nodes) > 4:
-                    nodes = nodes[:5] + ["and %i more nodes ..." % len(nodes)]
+                    if not (producers & dependencies[consumer]):
+                        bad_nodes.add(consumer)
 
+                if bad_nodes:
+                    bad_nodes = _summarize_nodes(bad_nodes)
+                    yield "Node depends on dynamically created file, but not on the node creating it:" + \
+                                "\n\tFilename: %s\n\tCreated by: %s\n\tDependent node(s): %s" \
+                                % (filename, producer, "\n\t                   ".join(bad_nodes))
+            elif not os.path.exists(filename):
+                nodes = _summarize_nodes(nodes)
                 yield "Required file does not exist, and is not created by a node:" + \
                             "\n\tFilename: %s\n\tDependent node(s): %s" \
-                            % (filename,    "\n\t                   ".join(map(str, nodes)))
+                            % (filename,    "\n\t                   ".join(nodes))
 
 
     @classmethod
@@ -268,3 +273,11 @@ class NodeGraph:
                 rev_dependencies[dependency].add(node)
             cls._collect_reverse_dependencies(node.dependencies, rev_dependencies)
             cls._collect_reverse_dependencies(node.subnodes, rev_dependencies)
+
+
+
+def _summarize_nodes(nodes):
+    nodes = list(sorted(set(map(str, nodes))))
+    if len(nodes) > 4:
+        nodes = nodes[:5] + ["and %i more nodes ..." % len(nodes)]
+    return nodes
