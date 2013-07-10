@@ -97,15 +97,21 @@ def build_pipeline_trimming(config, makefile):
 def build_pipeline_full(config, makefile, return_nodes = True):
     targets = []
     features = makefile["Options"]["Features"]
+	# target_name : M992 (usually only one)
     for (target_name, sample_records) in makefile["Targets"].iteritems():
         prefixes = []
+		# prefixes: nuclear and mito
         for (prefix_name, prefix) in makefile["Prefixes"].iteritems():
             samples = []
+			# Sample: M992
             for (sample_name, library_records) in sample_records.iteritems():
                 libraries = []
+				# library_name: GATCAG
                 for (library_name, barcode_records) in library_records.iteritems():
                     lanes = []
+					# barcode: M922_8 (not really a barcode)
                     for (barcode, record) in barcode_records.iteritems():
+						# append a lane object for each barcode, library, sample, prefix, target
                         lanes.append(parts.Lane(config, prefix, record, barcode))
 
                     if any(lane.bams for lane in lanes):

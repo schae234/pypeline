@@ -22,6 +22,7 @@
 #
 import os
 import copy
+import re
 
 from pypeline.common.fileutils import missing_files
 from pypeline.common.makefile import MakefileError
@@ -51,6 +52,10 @@ class Reads:
             self.files.update(record["Data"])
         else:
             assert False, "Unexpected data type in Reads(): %s" % (repr(lane_type))
+
+        # Check Quality Score
+        if not self._check_raw_read_quality(record):
+            assert False, "Quality Scores do not match: %s" % (repr(record["Data"]))
 
         for name in record["Options"]["ExcludeReads"]:
             self.files.pop(name, None)
@@ -99,3 +104,44 @@ class Reads:
         command.command.set_parameter("--qualitybase", quality_offset)
 
         self.nodes = (command.build_node(),)
+
+
+    def _check_raw_read_quality(self, record):
+        # dont check the whole file
+        lines = 10000
+        def detect_phred_offset(fastq_file_name):
+            # set initial version detections to 0
+            v33 = 0
+            v64 = 0
+            # input files can be compressed in gzip of bzip
+            if re.match("^.*gz|gzip$",fastq_file_name):
+                import gzip
+                fastq_file = gzip.open(fastq_file_name, 'rb')
+            elif re.match("^.*.bz2|bzip$"):
+                import bz2
+                fastq_file = bz2.BZ2File(fastq_file_name)
+            else:
+                fastq_file = open(fastq_file_name,'r')
+            # dont read the whole file
+            for n in range(1,lines):
+                line = fastq_file.readline().rstrip("\n")
+                if n % 4 != 0:
+                    continue
+                # v33 have these unique ascii encodings
+                if re.search(r'[!i"#$%&\'()*+,-./0123456789:;<=>?]',line):
+                    v33 += 1
+                # v64 have these unique ascii encodings
+                if re.search(r"[KLMNOPQRSTUVWXYZ[]^_`abcdefgh]",line):
+                    v64 += 1 
+            if v33 > v64:
+                return 33
+            elif v33 < v64:
+                return 64
+        # Test the files
+        files = record["Data"]
+        for file_names in files.itervalues():
+            for file_name in file_names:
+                if detect_phred_offset(file_name) != self.quality_offset:
+                    return False
+        # all the files detected were what expected
+        return True 
