@@ -1,0 +1,13 @@
+diff --git a/pypeline/node.py b/pypeline/node.py
+index 394815a..8447f79 100644
+--- a/pypeline/node.py
++++ b/pypeline/node.py
+@@ -221,7 +221,7 @@ class CommandNode(Node):
+         return_codes = self._command.join()
+         if any(return_codes):
+             raise NodeError("Error(s) running '%s':\n\tReturn-codes: %s\n\tTemporary directory: '%s'" \
+-                             % (self._command, return_codes, temp))
++                             % ("\n".join(self._command.split(",")), return_codes, temp))
+ 
+ 
+     def _teardown(self, config, temp):

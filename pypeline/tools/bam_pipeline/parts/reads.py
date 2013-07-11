@@ -110,7 +110,7 @@ class Reads:
 
     def _check_raw_read_quality(self, record):
         # dont check the whole file
-        lines = 10000
+        lines = 5000
         def detect_phred_offset(fastq_file_name):
             # set initial version detections to 0
             v33 = 0
