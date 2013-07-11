@@ -5,8 +5,8 @@
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
 # in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell 
-# copies of the Software, and to permit persons to whom the Software is 
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
 #
 # The above copyright notice and this permission notice shall be included in all
@@ -15,29 +15,27 @@
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 #
+import os
 import sys
-import time
+import shutil
 import inspect
 import traceback
 
 import pypeline.ui as ui
 from pypeline.node import Node
 from pypeline.pipeline import Pypeline
-
+from pypeline.common.testing import FUNC_TEST_ROOT
 
 # Test modules, see _collect_tests
-import adapterremoval_test
-import bwa_test
-import picard_test
-
-
-# Timestamp used to ensure that each run is kept seperate
-_EPOCH = time.time()
+import adapterremoval_test # pylint: disable=W0611
+import bwa_test            # pylint: disable=W0611
+import bowtie2_test        # pylint: disable=W0611
+import picard_test         # pylint: disable=W0611
 
 
 def _collect_tests():
@@ -49,37 +47,40 @@ def _collect_tests():
                     yield module, obj
 
 
-class Config:
-    temp_root    = "tests/runs/%i/temp/" % (_EPOCH,)
+class Config: # pylint: disable=W0232
+    temp_root    = FUNC_TEST_ROOT
     jar_root     = "tests/links/jar_root"
     dependencies = Node(description = "DummyDependency")
 
 
 def main(argv):
     ui.print_info("Running functional Node tests:")
-    ui.print_info("  - Destination = 'tests/runs/%i' ..." % _EPOCH)
+    ui.print_info("  - Destination = %r ..." % FUNC_TEST_ROOT)
     ui.print_info()
 
     errors = False
     pipeline = Pypeline(Config)
     for (module, func) in _collect_tests():
-        Config.destination = "tests/runs/%i/%s" % (_EPOCH, module)
-    
-        try: 
+        Config.destination = os.path.join(FUNC_TEST_ROOT, module)
+
+        try:
             ui.print_info("Adding node '%s' ..." % func.__name__)
             node = func(Config)
             pipeline.add_nodes(node)
-        except Exception, e:
+        except StandardError:
             ui.print_err(traceback.format_exc())
             errors = True
 
+        for metanodes in node.dependencies:
+            for subnode in metanodes.dependencies:
+                if Config.dependencies not in subnode.dependencies:
+                    raise RuntimeError("Node did not pass dependencies: %s\n%r vs %r" \
+                                       % (subnode, subnode.dependencies, Config.dependencies))
 
-#   TODO: Test all derived nodes
-#            if list(node.dependencies) != [Config.dependencies]:
-#                raise RuntimeError("Node did not pass dependencies")
-
-
-    if not pipeline.run(dry_run = "--dry-run" in argv, collapse = True, max_running = 2):
+    if pipeline.run(dry_run = "--dry-run" in argv, verbose = False, collapse = True, max_running = 2):
+        # Everything went fine, so there's currently no need to save the output
+        shutil.rmtree(FUNC_TEST_ROOT)
+    else:
         errors = True
 
     return (1 if errors else 0)

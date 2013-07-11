@@ -20,7 +20,34 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 #
-import genotype
-import msa
-import paml
-import phylo
+
+import signal
+import pypeline.common.signals as signals
+
+import nose
+from nose.tools import assert_equal
+
+
+def test_signal__sigterm_to_str():
+    assert_equal(signals.to_str(signal.SIGTERM), "SIGTERM")
+
+def test_signal__str_to_sigterm():
+    assert_equal(signals.from_str("SIGTERM"), signal.SIGTERM)
+
+
+@nose.tools.raises(KeyError)
+def test_signal__to_str__unknown_signal():
+    signals.to_str(1024)
+
+@nose.tools.raises(KeyError)
+def test_signal__from_str__unknown_signal():
+    signals.from_str("SIGSMURF")
+
+
+@nose.tools.raises(TypeError)
+def test_signal__to_str__wrong_type():
+    signals.to_str("SIGTERM")
+
+@nose.tools.raises(TypeError)
+def test_signal__from_str__wrong_type():
+    signals.from_str(signal.SIGTERM)

@@ -5,8 +5,8 @@
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
 # in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell 
-# copies of the Software, and to permit persons to whom the Software is 
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
 #
 # The above copyright notice and this permission notice shall be included in all
@@ -15,15 +15,17 @@
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 #
 import os
 
-from pypeline.node import Node
-from pypeline.nodes.adapterremoval import *
+from pypeline.node import MetaNode
+from pypeline.nodes.adapterremoval import \
+     SE_AdapterRemovalNode, \
+     PE_AdapterRemovalNode
 
 
 def _adapterremoval_se(config):
@@ -35,10 +37,10 @@ def _adapterremoval_se(config):
                                      **node_params)
     custom   = SE_AdapterRemovalNode.customize(output_prefix = os.path.join(config.destination, "se_custom"),
                                                **node_params)
-    custom.command.set_parameter("--minlength", 30)
+    custom.command.set_option("--minlength", 30)
 
-    return Node(description  = "AdapterRemoval_SE", 
-                dependencies = [standard, custom.build_node()])
+    return MetaNode(description  = "AdapterRemoval_SE",
+                    dependencies = [standard, custom.build_node()])
 
 
 
@@ -53,15 +55,15 @@ def _adapterremoval_pe(config):
                                      **node_params)
     custom   = PE_AdapterRemovalNode.customize(output_prefix = os.path.join(config.destination, "pe_custom"),
                                                **node_params)
-    custom.command.set_parameter("--minlength", 30)
+    custom.command.set_option("--minlength", 30)
 
-    return Node(description  = "AdapterRemoval_PE", 
-                dependencies = [standard, custom.build_node()])
+    return MetaNode(description  = "AdapterRemoval_PE",
+                    dependencies = [standard, custom.build_node()])
 
 
 def test_adapterremoval(config):
     rm_se = _adapterremoval_se(config)
     rm_pe = _adapterremoval_pe(config)
 
-    return Node(description = "AdapterRemoval",
-                dependencies = (rm_se, rm_pe))
+    return MetaNode(description = "AdapterRemoval",
+                    dependencies = (rm_se, rm_pe))

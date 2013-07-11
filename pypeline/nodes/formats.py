@@ -20,15 +20,12 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
 # SOFTWARE.
 #
-import os
-import itertools
 import collections
 
 from pypeline.node import Node, NodeError
 from pypeline.common.fileutils import move_file, reroot_path
 from pypeline.common.formats.msa import read_msa, join_msa, split_msa
 from pypeline.common.formats.phylip import interleaved_phy, sequential_phy
-from pypeline.common.utilities import grouper, safe_coerce_to_tuple
 
 
 
@@ -232,6 +229,6 @@ def _read_sequences(filenames):
         elif set(msa) != expected_groups:
             difference = expected_groups.symmetric_difference(msa)
             raise NodeError("Unexpected/missing groups for sequence (%s): %s" \
-                                % (name, ", ".join(difference)))
-        
+                                % (filename, ", ".join(difference)))
+
         yield (filename, msa)

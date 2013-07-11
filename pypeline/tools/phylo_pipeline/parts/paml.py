@@ -23,19 +23,13 @@
 import os
 import re
 
-from pypeline import Pypeline
-from pypeline.node import Node, MetaNode, CommandNode
-from pypeline.nodes.sequences import CollectSequencesNode
-from pypeline.nodes.mafft import MetaMAFFTNode
-from pypeline.atomiccmd import AtomicCmd
-from pypeline.atomicset import ParallelCmds
+from pypeline.node import Node, MetaNode, CommandNode, NodeError
+from pypeline.atomiccmd.command import AtomicCmd
 
 from pypeline.common.utilities import fragment, safe_coerce_to_tuple
 from pypeline.common.formats.msa import read_msa
 import pypeline.common.fileutils as fileutils
-
-
-import common
+import pypeline.tools.phylo_pipeline.parts.common as common
 
 
 class FastaToPAMLPhyNode(Node):
@@ -72,7 +66,7 @@ class FastaToPAMLPhyNode(Node):
 
 
     def _teardown(self, _config, temp):
-        source_file = fileutils.reroot_path(temp, output_file)
+        source_file = fileutils.reroot_path(temp, self._output_file)
         output_file = self._output_file
         fileutils.move_file(source_file, output_file)
 
@@ -89,15 +83,19 @@ class CodemlNode(CommandNode):
                             IN_SEQUENCE_FILE = sequence_file,
                             IN_TREES_FILE    = trees_file,
                             TEMP_OUT_CTL     = "template.ctl",
+                            TEMP_OUT_SEQS    = "template.seqs",
+                            TEMP_OUT_TREES   = "template.trees",
+                            TEMP_OUT_STDOUT  = "template.stdout",
+                            TEMP_OUT_STDERR  = "template.stderr",
                             OUT_CODEML       = output_prefix + ".codeml",
-                            OUT_2NG_DN       = output_prefix + ".2NG.dN",
-                            OUT_2NG_DS       = output_prefix + ".2NG.dS",
-                            OUT_2NG_T        = output_prefix + ".2NG.t",
-                            OUT_4FOLD        = output_prefix + ".4fold.nuc",
-                            OUT_LNF          = output_prefix + ".lnf",
-                            OUT_RST          = output_prefix + ".rst",
-                            OUT_RST1         = output_prefix + ".rst1",
-                            OUT_RUB          = output_prefix + ".rub",
+                            TEMP_OUT_2NG_DN  = "2NG.dN",
+                            TEMP_OUT_2NG_DS  = "2NG.dS",
+                            TEMP_OUT_2NG_T   = "2NG.t",
+                            TEMP_OUT_4FOLD   = "4fold.nuc",
+                            TEMP_OUT_LNF     = "lnf",
+                            TEMP_OUT_RST     = "rst",
+                            TEMP_OUT_RST1    = "rst1",
+                            TEMP_OUT_RUB     = "rub",
                             IN_STDIN         = "/dev/null", # Prevent promts from blocking
                             set_cwd          = True)
 
@@ -107,22 +105,32 @@ class CodemlNode(CommandNode):
                              dependencies = dependencies)
 
     def _setup(self, _config, temp):
+        def _symlink(filename, dst):
+            os.symlink(os.path.realpath(filename), os.path.join(temp, dst))
+        _symlink(self._sequence_file, "template.seqs")
+        _symlink(self._trees_file,    "template.trees")
+
         self._update_ctl_file(source        = self._control_file,
                               destination   = os.path.join(temp, "template.ctl"),
-                              sequence_file = self._sequence_file,
-                              trees_file    = self._trees_file,
+                              sequence_file = os.path.join(temp, "template.seqs"),
+                              trees_file    = os.path.join(temp, "template.trees"),
                               output_prefix = self._output_prefix)
 
-    def _teardown(self, config, temp):
-        prefix = os.path.basename(self._output_prefix)
-        for filename in ("2NG.dN", "2NG.dS", "2NG.t", "4fold.nuc", "lnf", "rst", "rst1", "rub"):
-            src_path = os.path.join(temp, filename)
-            dst_path = os.path.join(temp, "%s.%s" % (prefix, filename))
+    def _run(self, config, temp):
+        try:
+            CommandNode._run(self, config, temp)
+        except NodeError, error:
+            # Allow failures due to low coverage
+            with open(fileutils.reroot_path(temp, "template.stdout")) as handle:
+                codeml = handle.read()
+                if "sequences do not have any resolved nucleotides. Giving up." not in codeml:
+                    raise error
 
-            if os.path.exists(src_path):
-                os.rename(src_path, dst_path)
+            with open(fileutils.reroot_path(temp, self._output_prefix + ".codeml"), "a") as handle:
+                handle.write("\nWARNING: No resolved nucleotides found, could not process gene.\n")
 
-        CommandNode._teardown(self, config, temp)
+            import sys
+            sys.stderr.write("WARNING: No resolved nucleotides in " + self._output_prefix + "\n")
 
     @classmethod
     def _update_ctl_file(cls, source, destination, sequence_file, trees_file, output_prefix):
@@ -132,9 +140,9 @@ class CodemlNode(CommandNode):
 
         # TODO: Check that number of replacements == 1
         # TODO: Do check before running everything!
-        template, count = re.subn(r'(\s*seqfile\s*=).*',  r'\1 ' + os.path.realpath(sequence_file), template)
+        template, count = re.subn(r'(\s*seqfile\s*=).*',  r'\1 ' + os.path.basename(sequence_file), template)
         assert count == 1, count
-        template, count = re.subn(r'(\s*treefile\s*=).*', r'\1 ' + os.path.realpath(trees_file),    template)
+        template, count = re.subn(r'(\s*treefile\s*=).*', r'\1 ' + os.path.basename(trees_file),    template)
         assert count == 1, count
         template, count = re.subn(r'(\s*outfile\s*=).*',  r'\1 ' + os.path.basename(output_file),   template)
         assert count == 1, count
@@ -144,36 +152,42 @@ class CodemlNode(CommandNode):
 
 
 def build_codeml_nodes(options, settings, interval, taxa, filtering, dependencies):
-    postfix = ""
+    in_postfix, out_postfix, afa_ext = "", "", ".afa"
     if any(filtering.itervalues()):
-        postfix = ".filtered"
+        in_postfix = out_postfix = ".filtered"
+    if not settings["MSAlignment"]["Enabled"]:
+        out_postfix = ".unaligned" + out_postfix
+        afa_ext = ".fasta"
 
+    paml        = settings["PAML"]
     sequences   = common.collect_sequences(options, interval, taxa)
-    sequencedir = os.path.join(options.destination, "alignments", interval["Name"] + postfix)
-    destination = os.path.join(options.destination, "paml", "codeml")
+    sequencedir = os.path.join(options.destination, "alignments", interval["Name"] + in_postfix)
+    destination = os.path.join(options.destination, "paml", "codeml", interval["Name"] + out_postfix)
+
 
     # Build meta-node for sequence conversion to PHYLIP format accepted by codeml
     phylip_nodes = {}
     for sequence in sequences:
-        input_file  = os.path.join(sequencedir, sequence + ".afa")
+        input_file  = os.path.join(sequencedir, sequence + afa_ext)
         output_file = os.path.join(destination, sequence + ".phy")
 
         phylip_nodes[sequence] = FastaToPAMLPhyNode(input_file     = input_file,
                                                     output_file    = output_file,
-                                                    exclude_groups = settings["codeml"]["ExcludeGroups"],
+                                                    exclude_groups = paml["codeml"]["ExcludeGroups"],
                                                     dependencies   = dependencies)
 
-    phylip_meta = MetaNode(description  = "<FastaToPAMLPhyNodes: '%s/*.afa' -> '%s/*.phy'>" % (sequencedir, destination),
+    phylip_meta = MetaNode(description  = "<FastaToPAMLPhyNodes: '%s/*.%s' -> '%s/*.phy'>" \
+                           % (sequencedir, afa_ext, destination),
                            subnodes     = phylip_nodes.values(),
                            dependencies = dependencies)
 
     codeml_nodes = []
-    for (ctl_name, ctl_file) in settings["codeml"]["Control Files"].iteritems():
+    for (ctl_name, ctl_file) in paml["codeml"]["Control Files"].iteritems():
         for (sequence, node) in phylip_nodes.iteritems():
-            output_prefix = os.path.join(destination, sequence + ".%s" % ctl_name)
+            output_prefix = os.path.join(destination, sequence + ".%s" % (ctl_name,))
 
             codeml = CodemlNode(control_file  = ctl_file,
-                                trees_file    = settings["codeml"]["Tree File"],
+                                trees_file    = paml["codeml"]["Tree File"],
                                 sequence_file = iter(node.output_files).next(),
                                 output_prefix = output_prefix,
                                 dependencies  = node)
@@ -185,30 +199,16 @@ def build_codeml_nodes(options, settings, interval, taxa, filtering, dependencie
 
 
 
-def chain_codeml(pipeline, options, makefiles):
+def chain_codeml(_pipeline, options, makefiles):
     destination = options.destination # Move to makefile
     for makefile in makefiles:
         nodes     = []
-        settings  = makefile["PAML"]
         intervals = makefile["Project"]["Intervals"]
         filtering = makefile["Project"]["Filter Singletons"]
         taxa      = makefile["Project"]["Taxa"]
         options.destination = os.path.join(destination, makefile["Project"]["Title"])
 
         for interval in intervals.itervalues():
-            nodes.append(build_codeml_nodes(options, settings, interval, taxa, filtering, makefile["Nodes"]))
+            nodes.append(build_codeml_nodes(options, makefile, interval, taxa, filtering, makefile["Nodes"]))
         makefile["Nodes"] = tuple(nodes)
     options.destination = destination
-
-
-
-if __name__ == '__main__':
-    import sys
-    class config:
-        temp_root = "./temp"
-    
-    node = CodemlNode(control_file  = sys.argv[1],
-                      sequence_file = sys.argv[2],
-                      trees_file    = sys.argv[3],
-                      output_prefix = sys.argv[4])
-    node.run(config)

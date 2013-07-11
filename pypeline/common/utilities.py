@@ -5,8 +5,8 @@
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
 # in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell 
-# copies of the Software, and to permit persons to whom the Software is 
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
 #
 # The above copyright notice and this permission notice shall be included in all
@@ -15,40 +15,41 @@
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 #
 import types
+import pickle
+import cPickle
 import itertools
 import binascii
 
 
-def safe_coerce_to_tuple(value):
-    """Takes a value which be a single object, or an an iterable and returns the content wrapped in
-    a tuple. In the case of strings, the original string object is returned in a tuple, and not as 
-    a tuple of chars."""
-    if isinstance(value, types.StringTypes):
-        return (value,)
+def _safe_coerce(cls):
+    def _do_safe_coerce(value):
+        if isinstance(value, (types.StringTypes, types.DictType)):
+            return cls((value,))
 
-    try:
-        return tuple(value)
-    except TypeError:
-        return (value,)
+        try:
+            return cls(value)
+        except TypeError:
+            return cls((value,))
 
+    _do_safe_coerce.__doc__ = \
+      """Takes a value which be a single object, or an an iterable
+      and returns the content wrapped in a {0}. In the case of strings,
+      and dictionaries the original string object is returned in a {0},
+      and not as a {0} of chars. A TypeError is raised if this is not
+      possible (e.g. dict in frozenset).""".format(cls.__name__)
+    _do_safe_coerce.__name__ = \
+      "safe_coerce_to_{0}".format(cls.__name__)
 
-def safe_coerce_to_frozenset(value):
-    """Takes a value which be a single object, or an an iterable and returns the content wrapped in
-    a frozenset. In the case of strings, the original string object is returned in a tuple, and not
-    as a frozenset of chars."""
-    if isinstance(value, types.StringTypes):
-        return frozenset((value,))
+    return _do_safe_coerce
 
-    try:
-        return frozenset(value)
-    except TypeError:
-        return frozenset((value,))
+safe_coerce_to_tuple     = _safe_coerce(tuple)
+safe_coerce_to_frozenset = _safe_coerce(frozenset)
 
 
 def try_cast(value, cast_to):
@@ -56,18 +57,18 @@ def try_cast(value, cast_to):
         return cast_to(value)
     except (ValueError, TypeError):
         return value
-    
+
 
 def crc32(data):
     return binascii.crc32(data) & 0xffffffff
 
 
 def set_in(dictionary, keys, value):
-    """Traverses a set of nested dictionaries using the given keys, 
-       and assigns the specified value to the inner-most 
+    """Traverses a set of nested dictionaries using the given keys,
+       and assigns the specified value to the inner-most
        dictionary (obtained from the second-to-last key), using
        the last key in keys. Thus calling set_in is(d, [X, Y, Z], v)
-       is equivalent to calling 
+       is equivalent to calling
          d.setdefault(X, {}).setdefault(Y, {})[Z] = v
 
        Behavior on non-dictionaries is undefined."""
@@ -129,7 +130,7 @@ def is_strictly_increasing(lst):
 def grouper(size, iterable, fillvalue=None):
     "grouper(3, 'ABCDEFG', 'x') --> ABC DEF Gxx"
     args = [iter(iterable)] * size
-    return itertools.izip_longest(fillvalue=fillvalue, *args)
+    return itertools.izip_longest(fillvalue = fillvalue, *args)
 
 
 def group_by_pred(pred, iterable):
@@ -152,6 +153,21 @@ def fragment(size, lstlike):
 
 
 def cumsum(lst, initial = 0):
+    """Yields the cummulative sums of the values in a
+    iterable, starting with the specified initial value."""
     for item in lst:
         initial += item
         yield initial
+
+
+def fast_pickle_test(obj):
+    """Attempts to pickle an object, raising a PicklingError
+    if the object is unpicklable. This function uses cPickle
+    to determine if the object is pickable, but 'pickle' to
+    generate the exception, since the python module produces
+    more informative error messages."""
+    try:
+        cPickle.dumps(obj)
+    except (TypeError, cPickle.PicklingError):
+        pickle.dumps(obj)
+        assert False # pragma: no coverage

@@ -22,15 +22,16 @@
 #
 import os
 import sys
+import glob
 import datetime
+from optparse import OptionParser
 
 import pypeline.ui as ui
-from pypeline.common.text import padded_table
+
 
 _TRIM_PIPELINE = (os.path.basename(sys.argv[0]) == "trim_pipeline")
-
-def _print_header(timestamp, full_mkfile = True):
-    print """# -*- mode: Yaml; -*-
+_TEMPLATE_TOP = \
+"""# -*- mode: Yaml; -*-
 # Timestamp: %s
 #
 # Default options.
@@ -52,13 +53,17 @@ Options:
   # Compression format used when storing FASTQ files (either 'gz' for GZip or 'bz2' for BZip2)
   CompressionFormat: bz2
 
-  """ % timestamp
+"""
 
-    if full_mkfile:
-        print """  # Settings for aligners supported by the pipeline
+_TEMPLATE_BAM_OPTIONS = \
+"""  # Settings for aligners supported by the pipeline
   AdapterRemoval:
     # Which version of AdapterRemoval to use ('v1.4' or 'v1.5+')
+<<<<<<< HEAD
     Version: 'v1.5+'
+=======
+    Version: v1.4
+>>>>>>> master
 
   Aligners:
     # Choice of aligner software to use, either "BWA" or "Bowtie2"
@@ -68,9 +73,9 @@ Options:
     BWA:
       # Filter hits with a mapping quality (PHRED) below this value
       MinQuality: 0
-      # Use seed region during sequence alignment
-      # Disabling the seed is recommended for aDNA alignments, as post-mortem damage
-      # tends to localize in the seed region, which is expected to be of high fideltiy
+      # Should be disabled ("no") for aDNA alignments, as post-mortem localizes
+      # to the seed region, which BWA expects to have few errors. Sets "-l".
+      # See Schubert et al. 2012: http://pmid.us/22574660
       UseSeed:    yes
       # Additional command-line options may be specified for the "aln" call(s), as
       # described below for Bowtie2.
@@ -124,6 +129,7 @@ Options:
 
 
 # Map of prefixes by name, each having a Path key, which specifies the location
+<<<<<<< HEAD
 # of the BWA/Bowtie2 index. This path should also be the filename of the
 # reference FASTA sequence, such as is the case then a index is built using
 # "bwa index PATH", in which case PATH would be PATH_TO_PREFIX below.
@@ -142,47 +148,100 @@ Prefixes:
   Equus_cab_nucl_wChrUn:
     Path: 000_Indices/Equus_cab_nucl_wChrUn.fasta
     Label: nuclear
-
-# Prefixes can also be specified using wildcards, by adding a wildcard to the
-# end of the prefix name, as shown below. The name itself is ignored, and each
-# prefix is named according to the basename of the path (ie. the filename with
-# the extensions removed).
-#  NAME_OR_DESCRIPTION*:
-#    Path: PATH_TO_PREFIXES/*.fasta
-#    Label: # "mito" or "nucl"
+=======
+# of the BWA/Bowtie2 index. See the 'README.md' file for more information,
+# Prefixes:
+#  NAME_OF_PREFIX:
+#    Path: PATH_TO_PREFIX
+#    Label: # "mitochondrial" or "nuclear"
+#    AreasOfInterest:
+#      NAME: PATH_TO_BEDFILE
+>>>>>>> master
 
 """
 
+_TEMPLATE_SAMPLES = \
+"""# Targets are specified using the following structure:
+# NAME_OF_TARGET:
+#   NAME_OF_SAMPLE:
+#     NAME_OF_LIBRARY:
+#       NAME_OF_LANE: PATH_WITH_WILDCARDS
+"""
 
 _FILENAME = "SampleSheet.csv"
 
-def read_alignment_records(filename):
 
+def _print_header(timestamp, full_mkfile = True, sample_tmpl = True, minimal = False):
+    template_parts = [_TEMPLATE_TOP % (timestamp,)]
+    if full_mkfile:
+        template_parts.append(_TEMPLATE_BAM_OPTIONS)
+        if sample_tmpl:
+            template_parts.append(_TEMPLATE_SAMPLES)
+    template = "\n".join(template_parts)
+
+    if not minimal:
+        print(template)
+        return
+
+    lines = template.split("\n")
+    minimal_template = lines[:3]
+    for line in lines[3:]:
+        if not line.lstrip().startswith("#"):
+            # Avoid too many empty lines
+            if line.strip() or minimal_template[-1].strip():
+                minimal_template.append(line)
+    print("\n".join(minimal_template))
+
+
+def read_alignment_records(filename):
     with open(filename) as records:
         header = records.readline().strip().split(",")
         for line in records:
             yield dict(zip(header, line.strip().split(",")))
 
+def parse_args(argv):
+    parser = OptionParser("Usage: %prog [/path/to/SampleSheet.csv]")
+    parser.add_option("--minimal", default = False, action = "store_true",
+                      help = "Strip comments from makefile template.")
+
+    return parser.parse_args(argv)
+
+def select_path(path):
+    has_r1 = bool(glob.glob(path.format(Pair = 1)))
+    has_r2 = bool(glob.glob(path.format(Pair = 2)))
+
+    if has_r1 and not has_r2:
+        # Single-ended reads
+        return path.format(Pair = 1)
+    return path
+
 
 def main(argv):
+    options, paths = parse_args(argv)
     records = {}
-    for root in argv:
+    for root in paths:
         if os.path.isdir(root):
             filename = os.path.join(root, _FILENAME)
         else:
             root, filename = os.path.split(root)[0], root
+
+        if not os.path.exists(filename):
+            ui.print_err("ERROR: Could not find SampleSheet file: %r" % filename)
+            return 1
 
         for record in read_alignment_records(filename):
             libraries = records.setdefault(record["SampleID"], {})
             barcodes  = libraries.setdefault(record["Index"], [])
 
             record["Lane"] = int(record["Lane"])
-            record["Path"] = os.path.join(root, "%(SampleID)s_%(Index)s_L%(Lane)03i_R{Pair}_*.fastq.gz" % record)
+            path = "%(SampleID)s_%(Index)s_L%(Lane)03i_R{Pair}_*.fastq.gz" % record
+            record["Path"] = select_path(os.path.join(root, path))
             barcodes.append(record)
 
-
     _print_header(timestamp   = datetime.datetime.now().isoformat(),
-                  full_mkfile = (os.path.basename(sys.argv[0]) != "trim_pipeline"))
+                  full_mkfile = (os.path.basename(sys.argv[0]) != "trim_pipeline"),
+                  sample_tmpl = not bool(records),
+                  minimal     = options.minimal)
     for (sample, libraries) in records.iteritems():
         print "%s:" % sample
         print "  %s:" % sample
@@ -198,7 +257,8 @@ def main(argv):
         ui.print_info("\tUsage: %s [directory ...]" % sys.argv[0], file = sys.stderr)
         ui.print_info("Each directory must contain a '%s' file." % _FILENAME, file = sys.stderr)
     else:
-        ui.print_info("Makefile printed. Please check for correctness and update Path column before running pipeline.", file = sys.stderr)
+        ui.print_info("Makefile printed. Please check for correctness before running pipeline.", file = sys.stderr)
+    return 0
 
 
 if __name__ == "__main__":

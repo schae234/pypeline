@@ -5,8 +5,8 @@
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
 # in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell 
-# copies of the Software, and to permit persons to whom the Software is 
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
 #
 # The above copyright notice and this permission notice shall be included in all
@@ -15,22 +15,21 @@
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 #
 import os
 
 from pypeline.node import CommandNode, MetaNode
-from pypeline.atomiccmd import AtomicCmd
-from pypeline.atomicset import ParallelCmds, SequentialCmds
-from pypeline.atomicparams import AtomicJavaParams
+from pypeline.atomiccmd.command import AtomicCmd
+from pypeline.atomiccmd.sets import ParallelCmds, SequentialCmds
+from pypeline.atomiccmd.builder import AtomicJavaCmdBuilder
 
 from pypeline.nodes.picard import ValidateBAMNode, concatenate_input_bams
-from pypeline.nodes.samtools import BAMIndexNode, SAMTOOLS_VERSION
-from pypeline.common.utilities import safe_coerce_to_tuple
-from pypeline.common.fileutils import swap_ext, add_postfix
+from pypeline.nodes.samtools import BAMIndexNode
+from pypeline.common.fileutils import describe_files
 
 import pypeline.common.versions as versions
 
@@ -39,9 +38,9 @@ _MAPDAMAGE_MAX_READS = 100000
 
 
 MAPDAMAGE_VERSION = versions.Requirement(call   = ("mapDamage", "--version"),
-                                         search = r"(\d+)\.(\d+)\.(\d+)",
+                                         search = r"(\d+)\.(\d+)[\.-](\d+)",
                                          pprint = "{0}.{1}.{2}",
-                                         checks = versions.GE(2, 0, 0))
+                                         checks = versions.GE(2, 0, 45))
 
 
 class MapDamageNode(CommandNode):
@@ -117,7 +116,7 @@ class FilterCollapsedBAMNode(CommandNode):
                                OUT_STDOUT = output_bam)
 
         command     = ParallelCmds(cat_cmds + [filteruniq])
-        description =  "<FilterCollapsedBAM: %s>" % (self._desc_files(input_bams),)
+        description =  "<FilterCollapsedBAM: %s>" % (describe_files(input_bams),)
         CommandNode.__init__(self,
                              command      = command,
                              description  = description,
@@ -139,14 +138,14 @@ class IndexAndValidateBAMNode(MetaNode):
                                                       dependencies = node)
         # Check MD tags against reference sequence
         # FIXME: Disabled due to issues with Picard/Samtools disagreeing, backwards compatibility.
-        #        validation_params.command.set_paths(IN_REFERENCE = prefix["Reference"])
-        #        validation_params.command.push_parameter("R", "%(IN_REFERENCE)s", sep = "=")
+        #        validation_params.command.set_kwargs(IN_REFERENCE = prefix["Reference"])
+        #        validation_params.command.add_option("R", "%(IN_REFERENCE)s", sep = "=")
         # Ignored since we filter out misses and low-quality hits during mapping, which
         # leads to a large proportion of missing mates for PE reads.
-        validation_params.command.push_parameter("IGNORE", "MATE_NOT_FOUND", sep = "=")
+        validation_params.command.add_option("IGNORE", "MATE_NOT_FOUND", sep = "=")
         # Ignored due to high rate of false positives for lanes with few hits, where
         # high-quality reads may case ValidateSamFile to mis-identify the qualities
-        validation_params.command.push_parameter("IGNORE", "INVALID_QUALITY_FORMAT", sep = "=")
+        validation_params.command.add_option("IGNORE", "INVALID_QUALITY_FORMAT", sep = "=")
         subnodes.append(validation_params.build_node())
 
         description = "<w/Validation: " + str(subnodes[0])[1:]
@@ -156,6 +155,7 @@ class IndexAndValidateBAMNode(MetaNode):
                           dependencies = dependencies)
 
 
+    @classmethod
     def _get_input_file(cls, node):
         if isinstance(node, MetaNode):
             for subnode in node.subnodes:
@@ -180,19 +180,19 @@ class CleanupBAMNode(CommandNode):
                         OUT_STDOUT = AtomicCmd.PIPE)
 
         jar_file = os.path.join(config.jar_root, "AddOrReplaceReadGroups.jar")
-        params = AtomicJavaParams(config, jar_file)
-        params.set_parameter("INPUT", "/dev/stdin", sep = "=")
-        params.set_parameter("OUTPUT", "/dev/stdout", sep = "=")
-        params.set_parameter("QUIET", "true", sep = "=")
-        params.set_parameter("COMPRESSION_LEVEL", "0", sep = "=")
+        params = AtomicJavaCmdBuilder(config, jar_file)
+        params.set_option("INPUT", "/dev/stdin", sep = "=")
+        params.set_option("OUTPUT", "/dev/stdout", sep = "=")
+        params.set_option("QUIET", "true", sep = "=")
+        params.set_option("COMPRESSION_LEVEL", "0", sep = "=")
 
         for (tag, value) in sorted(tags.iteritems()):
             if tag not in ("PG", "Target", "PU_src", "PU_cur"):
-                params.set_parameter(tag, value, sep = "=")
+                params.set_option(tag, value, sep = "=")
             elif tag == "PU_src":
-                params.set_parameter("PU", value, sep = "=")
+                params.set_option("PU", value, sep = "=")
 
-        params.set_paths(IN_STDIN   = flt,
+        params.set_kwargs(IN_STDIN   = flt,
                          OUT_STDOUT = AtomicCmd.PIPE)
         annotate = params.finalize()
 

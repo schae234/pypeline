@@ -21,17 +21,18 @@
 # SOFTWARE.
 #
 import os
+<<<<<<< HEAD
 import copy
 import re
+=======
+>>>>>>> master
 
 from pypeline.common.fileutils import missing_files
-from pypeline.common.makefile import MakefileError
+from pypeline.atomiccmd.builder import apply_options
 from pypeline.nodes.adapterremoval import SE_AdapterRemovalNode, \
                                           PE_AdapterRemovalNode, \
                                           VERSION_14, \
                                           VERSION_15
-
-import pypeline.tools.bam_pipeline.paths as paths
 
 
 class Reads:
@@ -101,7 +102,8 @@ class Reads:
         quality_offset = self.quality_offset # record["Options"]["QualityOffset"]
         if quality_offset == "Solexa":
             quality_offset = 64
-        command.command.set_parameter("--qualitybase", quality_offset)
+        command.command.set_option("--qualitybase", quality_offset)
+        apply_options(command.command, record["Options"]["AdapterRemoval"])
 
         self.nodes = (command.build_node(),)
 

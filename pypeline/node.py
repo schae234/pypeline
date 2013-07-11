@@ -5,8 +5,8 @@
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
 # in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell 
-# copies of the Software, and to permit persons to whom the Software is 
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
 #
 # The above copyright notice and this permission notice shall be included in all
@@ -15,35 +15,38 @@
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 #
 import os
 import sys
-# pickle is used instead of cPickle, because pickle
-# produces more informative errors on failure
+import types
 import pickle
 import traceback
+import collections
 
 import pypeline.common.fileutils as fileutils
-from pypeline.common.utilities import safe_coerce_to_frozenset
+from pypeline.common.utilities import safe_coerce_to_frozenset, \
+     fast_pickle_test
 
-# Imported from, in order to allow monkeypatching in tests
-# FIXME: Make create_temp_dir a 'with' object
-from os import rmdir
-from pypeline.common.fileutils import create_temp_dir
 
 
 
 class NodeError(RuntimeError):
     pass
 
+class CmdNodeError(NodeError):
+    pass
+
+class MetaNodeError(NodeError):
+    pass
+
 class NodeUnhandledException(NodeError):
-    """This exception is thrown by Node.run() if a non-NodeError exception 
+    """This exception is thrown by Node.run() if a non-NodeError exception
     is raised in a subfunction (e.g. _setup, _run, or _teardown). The text
-    for this exception will include both the original error message and a 
+    for this exception will include both the original error message and a
     stacktrace for that error."""
     pass
 
@@ -54,22 +57,27 @@ class Node(object):
                  executables = (), auxiliary_files = (),
                  requirements = (), subnodes = (), dependencies = ()):
 
-        self.__description   = description
-        self.input_files     = safe_coerce_to_frozenset(input_files)
-        self.output_files    = safe_coerce_to_frozenset(output_files)
-        self.executables     = safe_coerce_to_frozenset(executables)
-        self.auxiliary_files = safe_coerce_to_frozenset(auxiliary_files)
-        self.requirements    = safe_coerce_to_frozenset(requirements)
+        if not isinstance(description, _DESC_TYPES):
+            raise TypeError("'description' must be None or a string, not %r" \
+                            % (description.__class__.__name__,))
 
-        self.threads         = int(threads)
+        self.__description   = description
+        self.input_files     = self._validate_files(input_files)
+        self.output_files    = self._validate_files(output_files)
+        self.executables     = self._validate_files(executables)
+        self.auxiliary_files = self._validate_files(auxiliary_files)
+        self.requirements    = self._validate_requirements(requirements)
+
         self.subnodes        = frozenset()
         self.dependencies    = frozenset()
+        self.threads         = self._validate_nthreads(threads)
 
         try:
             # Ensure that the node can be used in a multiprocessing context
-            pickle.dumps(self)
-        except pickle.PicklingError, e:
-            raise NodeError("Node could not be pickled, please file a bug-report:\n\tNode: %s\n\tError: %s" % (self, e))
+            fast_pickle_test(self)
+        except pickle.PicklingError, error:
+            raise NodeError("Node could not be pickled, please file a bug-report:\n"
+                            "\tNode: %s\n\tError: %s" % (self, error))
 
         # Set here to avoid pickle-testing of subnodes / dependencies
         self.subnodes        = self._collect_nodes(subnodes, "Subnode")
@@ -120,13 +128,13 @@ class Node(object):
 
         try:
             temp = None
-            temp = create_temp_dir(config.temp_root)
+            temp = fileutils.create_temp_dir(config.temp_root)
 
             self._setup(config, temp)
             self._run(config, temp)
             self._teardown(config, temp)
 
-            rmdir(temp)
+            os.rmdir(temp)
         except NodeError, error:
             self._write_error_log(temp, error)
             raise error
@@ -142,8 +150,7 @@ class Node(object):
         function. Checks that required input files exist, and raises an NodeError if
         this is not the case."""
         if fileutils.missing_executables(self.executables):
-            raise NodeError("Executable(s) does not exist for command: %s" \
-                                % (self._command,))
+            raise NodeError("Executable(s) does not exist for node: %s" % (self,))
         self._check_for_missing_files(self.input_files, "input")
         self._check_for_missing_files(self.auxiliary_files, "auxiliary")
 
@@ -159,7 +166,7 @@ class Node(object):
         description if no description was passed to the constructor."""
         if self.__description:
             return self.__description
-        return "<%s>" % (self.__class__.__name__,)
+        return repr(self)
 
 
     def _write_error_log(self, temp, error):
@@ -202,17 +209,30 @@ class Node(object):
                 % (description, self, "\n\t         ".join(missing_files))
             raise NodeError(message)
 
+    @classmethod
+    def _validate_requirements(cls, requirements):
+        requirements = safe_coerce_to_frozenset(requirements)
+        for requirement in requirements:
+            if not isinstance(requirement, collections.Callable):
+                raise TypeError("'requirements' must be callable, not %r" \
+                    % (type(requirement),))
+        return requirements
 
     @classmethod
-    def _desc_files(cls, files):
-        if len(files) == 1:
-            return "'%s'" % tuple(files)
-        else:
-            paths = set(os.path.dirname(filename) for filename in files)
-            if len(paths) == 1:
-                return "%i file(s) in '%s'" % (len(files), paths.pop())
-            else:
-                return "%i file(s)" % (len(files),)
+    def _validate_files(cls, files):
+        files = safe_coerce_to_frozenset(files)
+        for filename in files:
+            if not isinstance(filename, types.StringTypes):
+                raise TypeError('Files must be strings, not %r' % filename.__class__.__name__)
+        return files
+
+    @classmethod
+    def _validate_nthreads(cls, threads):
+        if not isinstance(threads, (types.IntType, types.LongType)):
+            raise TypeError("'threads' must be a positive integer, not %s" % (type(threads),))
+        elif threads < 1:
+            raise ValueError("'threads' must be a positive integer, not %i" % (threads,))
+        return int(threads)
 
 
 
@@ -220,7 +240,7 @@ class Node(object):
 class CommandNode(Node):
     def __init__(self, command, description = None, threads = 1,
                  subnodes = (), dependencies = ()):
-        Node.__init__(self, 
+        Node.__init__(self,
                       description  = description,
                       input_files  = command.input_files,
                       output_files = command.output_files,
@@ -234,7 +254,7 @@ class CommandNode(Node):
         self._command = command
 
     def _run(self, _config, temp):
-        """Runs the command object provided in the constructor, and waits for it to 
+        """Runs the command object provided in the constructor, and waits for it to
         terminate. If any errors during the running of the command, this function
         raises a NodeError detailing the returned error-codes."""
         self._command.run(temp)
@@ -242,11 +262,30 @@ class CommandNode(Node):
         return_codes = self._command.join()
         if any(return_codes):
             desc = "\n\t".join(str(self._command).split("\n"))
-            raise NodeError("Error(s) running Node:\n\tReturn-codes: %s\n\tTemporary directory: '%s'\n\n\t%s" \
-                             % (return_codes, temp, desc))
+            raise CmdNodeError(("Error(s) running Node:\n\tReturn-codes: %s\n"
+                                "\tTemporary directory: %s\n\n\t%s") \
+                                % (return_codes, repr(temp), desc))
 
 
     def _teardown(self, config, temp):
+        required_files = self._command.expected_temp_files
+        optional_files = self._command.optional_temp_files
+        current_files  = set(os.listdir(temp))
+
+        missing_files = (required_files - current_files)
+        if missing_files:
+            raise CmdNodeError(("Error running Node, required files not created:\n"
+                               "Temporary directory: %r\n"
+                               "\tRequired files missing from temporary directory:\n\t    - %s") \
+                               % (temp, "\n\t    - ".join(sorted(map(repr, missing_files)))))
+
+        extra_files = current_files - (required_files | optional_files)
+        if extra_files:
+            raise CmdNodeError("Error running Node, unexpected files created:\n"
+                               "\tTemporary directory: %r\n"
+                               "\tUnexpected files found in temporary directory:\n\t    - %s" \
+                               % (temp, "\n\t    - ".join(sorted(map(repr, extra_files)))))
+
         self._command.commit(temp)
 
         Node._teardown(self, config, temp)
@@ -259,18 +298,23 @@ class MetaNode(Node):
     and is marked as done when all its subnodes / dependencies are completed."""
 
     def __init__(self, description = None, subnodes = (), dependencies = ()):
-        Node.__init__(self, 
+        Node.__init__(self,
                       description  = description,
                       subnodes     = subnodes,
                       dependencies = dependencies)
 
     @property
     def is_done(self):
-        raise RuntimeError("Called 'is_done' on MetaNode")
+        raise MetaNodeError("Called 'is_done' on MetaNode")
 
     @property
     def is_outdated(self):
-        raise RuntimeError("Called 'is_outdated' on MetaNode")
+        raise MetaNodeError("Called 'is_outdated' on MetaNode")
 
     def run(self, config):
-        raise RuntimeError("Called 'run' on MetaNode")
+        raise MetaNodeError("Called 'run' on MetaNode")
+
+
+
+# Types that are allowed for the 'description' property
+_DESC_TYPES = types.StringTypes + (types.NoneType,)
