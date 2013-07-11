@@ -59,11 +59,8 @@ _TEMPLATE_BAM_OPTIONS = \
 """  # Settings for aligners supported by the pipeline
   AdapterRemoval:
     # Which version of AdapterRemoval to use ('v1.4' or 'v1.5+')
-<<<<<<< HEAD
     Version: 'v1.5+'
-=======
     Version: v1.4
->>>>>>> master
 
   Aligners:
     # Choice of aligner software to use, either "BWA" or "Bowtie2"
@@ -129,7 +126,6 @@ _TEMPLATE_BAM_OPTIONS = \
 
 
 # Map of prefixes by name, each having a Path key, which specifies the location
-<<<<<<< HEAD
 # of the BWA/Bowtie2 index. This path should also be the filename of the
 # reference FASTA sequence, such as is the case then a index is built using
 # "bwa index PATH", in which case PATH would be PATH_TO_PREFIX below.
@@ -148,7 +144,6 @@ Prefixes:
   Equus_cab_nucl_wChrUn:
     Path: 000_Indices/Equus_cab_nucl_wChrUn.fasta
     Label: nuclear
-=======
 # of the BWA/Bowtie2 index. See the 'README.md' file for more information,
 # Prefixes:
 #  NAME_OF_PREFIX:
@@ -156,7 +151,6 @@ Prefixes:
 #    Label: # "mitochondrial" or "nuclear"
 #    AreasOfInterest:
 #      NAME: PATH_TO_BEDFILE
->>>>>>> master
 
 """
 
