@@ -21,11 +21,8 @@
 # SOFTWARE.
 #
 import os
-<<<<<<< HEAD
 import copy
 import re
-=======
->>>>>>> master
 
 from pypeline.common.fileutils import missing_files
 from pypeline.atomiccmd.builder import apply_options
