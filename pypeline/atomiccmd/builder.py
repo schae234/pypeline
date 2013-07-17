@@ -77,8 +77,6 @@ class AtomicCmdBuilderError(RuntimeError):
     pass
 
 
-
-
 class AtomicCmdBuilder:
     """AtomicCmdBuilder is a class used to allow step-wise construction of an
     AtomicCmd object. This allows the user of a Node to modify the behavior
@@ -120,7 +118,7 @@ class AtomicCmdBuilder:
         """See AtomiCmd.__init__ for parameters / keyword arguments."""
 
         self._call    = safe_coerce_to_tuple(call)
-        self._options = []
+        self._options = []  # list of dicts
         self._values  = []
         self._kwargs  = {}
         self._object  = None

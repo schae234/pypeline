@@ -77,7 +77,7 @@ _VALIDATION = {
     IsStr : { 
         IsStr: { 
             "Description": IsStr,
-            "Bams":  IsListOf(IsStr), 
+            "BAMs":  IsListOf(IsStr), 
         }
     }
 }
