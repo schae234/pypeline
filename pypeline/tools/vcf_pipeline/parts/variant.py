@@ -41,7 +41,7 @@ SAMTOOLS_VERSION = versions.Requirement(
     checks = version.GE(0, 1, 18)
 )
 
-class VarientNode(CommandNode):
+class VariantNode(CommandNode):
     @create_customizable_cli_parameters
     def customize(cls, reference, infiles = (), outfile, dependencies= ()):
         assert outfile.lower().endswith('.vcf.bgz')
@@ -54,13 +54,31 @@ class VarientNode(CommandNode):
             OUT_STDOUT   = AtomicCmd.PIPE,
             CHECK_SAM    = SAMTOOLS_VERSION
         )
+        pileup.set_option('-u') # uncompressed output
+        pileup.set_option('-f', "%(IN_REFERENCE)s") # Add reference option
 
-def build_variant_nodes(reference, bams):
-    
-    import pdb; pdb.set_trace();
-    variants = GenotypeNode.customize(
+    return {
+        "commands" : {
+            "pileup" : pileup,
+        }
+    }
+
+    @use_customizable_cli_parameters
+    def __init__(self, parameters):
+        commands = [parameters.commands[key]].finalize() for key in ('pileup','')]
+        description = "<VariantCaller : '%s' -> %s" % (parameters.infile,
+                                                       parameters.outfile)
+        CommandNode.__init__(self,
+                             description  = description,
+                             command      = ParallelCmds(commands),
+                             dependencies = parameters.dependencies)
+
+
+def build_variant_nodes(options, reference, bams, dependencies = ()):
+
+    variants = VariantNode.customize(
         reference = reference,
-        infile = bams,
+        infile = safe_coerce_to_tuple(bams),
         outfile = outfile
     )
     variants = variants.build_node()
@@ -74,6 +92,7 @@ def chain(pipeline, options, makefiles):
             for group in makefile['Targets']:
                 nodes.append(
                     build_variant_nodes(
+                        options,
                         makefile['Prefixes'][prefix]['Path'],
                         makefile['Targets'][group]['BAMs']
                     )

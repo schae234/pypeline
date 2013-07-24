@@ -44,7 +44,6 @@ class NodeGraph:
 
     def __init__(self, nodes):
         nodes = safe_coerce_to_frozenset(nodes)
-
         self._reverse_dependencies = collections.defaultdict(set)
         self._collect_reverse_dependencies(nodes, self._reverse_dependencies)
         self._intersections = self._calculate_intersections()

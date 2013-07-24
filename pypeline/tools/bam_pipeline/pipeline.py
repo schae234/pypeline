@@ -129,7 +129,6 @@ def build_pipeline_full(config, makefile, return_nodes = True):
     targets = _add_extra_nodes(config, makefile, targets)
     if not return_nodes:
         return targets
-
     return [target.node for target in targets]
 
 
@@ -374,7 +373,6 @@ def main(argv):
         pipeline_func = build_pipeline_targets
     elif os.path.basename(sys.argv[0]) != "trim_pipeline":
         pipeline_func = build_pipeline_full
-
     pipeline = pypeline.Pypeline(config)
     for makefile in makefiles:
         # If a destination is not specified, save results in same folder as makefile
@@ -383,6 +381,7 @@ def main(argv):
         if old_destination is None:
             config.destination = os.path.dirname(filename)
 
+        # generate nodes using pipeline func
         try:
             nodes = pipeline_func(config, makefile)
         except pypeline.node.NodeError, e:
@@ -390,7 +389,7 @@ def main(argv):
             return 1
 
         config.destination = old_destination
-
+        # add nodes to pipeline
         pipeline.add_nodes(nodes)
 
     if config.targets:

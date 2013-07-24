@@ -118,8 +118,8 @@ class AtomicCmdBuilder:
         """See AtomiCmd.__init__ for parameters / keyword arguments."""
 
         self._call    = safe_coerce_to_tuple(call)
-        self._options = []  # list of dicts
-        self._values  = []
+        self._options = []  # list of dicts, gets built with set option command 
+        self._values  = []  # a list  
         self._kwargs  = {}
         self._object  = None
 
@@ -330,6 +330,7 @@ def apply_options(builder, options, pred = lambda s: s.startswith("-")):
         if not isinstance(key, types.StringTypes):
             raise TypeError("Keys must be strings, not %r" % (key.__class__.__name__,))
         elif pred(key):
+			# The key is associated with a list, use add_option
             if isinstance(values, (types.ListType, types.TupleType)):
                 for value in values:
                     if not isinstance(value, _ADDABLE_TYPES) or isinstance(value, _SETABLE_ONLY_TYPES):
