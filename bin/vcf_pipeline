@@ -123,7 +123,6 @@ def main(argv):
         if "Nodes" in makefile:
             pipeline.add_nodes(makefile["Nodes"])
 
-    import pdb; pdb.set_trace()
     if not pipeline.run(max_running = options.max_threads,
                         dry_run     = not options.run,
                         verbose     = options.verbose,

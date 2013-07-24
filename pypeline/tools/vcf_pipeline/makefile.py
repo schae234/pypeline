@@ -74,10 +74,4 @@ _VALIDATION = {
             "Label" : IsStr,
         },
     },
-    IsStr : { 
-        IsStr: { 
-            "Description": IsStr,
-            "BAMs":  IsListOf(IsStr), 
-        }
-    }
 }

@@ -38,35 +38,46 @@ import pypeline.common.versions as versions
 SAMTOOLS_VERSION = versions.Requirement(
     call   = ("samtools",),
     search = b"Version: (\d+)\.(\d+)\.(\d+)",
-    checks = version.GE(0, 1, 18)
+    checks = versions.GE(0, 1, 18)
 )
 
 class VariantNode(CommandNode):
     @create_customizable_cli_parameters
-    def customize(cls, reference, infiles = (), outfile, dependencies= ()):
-        assert outfile.lower().endswith('.vcf.bgz')
+    def customize(cls, reference, infiles, outfile, dependencies= ()):
+        assert outfile.lower().endswith('.vcf')
        
         # Create the pileup command 
         pileup = AtomicCmdBuilder(
             ['samtools','mpileup'],
             IN_REFERENCE = reference,
-            IN_BAMS      = safe_coerce_to_tuple(infiles),
             OUT_STDOUT   = AtomicCmd.PIPE,
             CHECK_SAM    = SAMTOOLS_VERSION
         )
         pileup.set_option('-u') # uncompressed output
         pileup.set_option('-f', "%(IN_REFERENCE)s") # Add reference option
 
-    return {
-        "commands" : {
-            "pileup" : pileup,
+        
+        for bam in infiles:
+            pileup.add_option(bam)
+
+
+        bcftools = AtomicCmdBuilder(
+                ['bcftools','view'],
+                IN_STDIN = pileup,
+                OUT_STDOUT = outfile
+        )
+
+        return {
+            "commands" : {
+                "pileup" : pileup,
+                "bcftools" : bcftools, 
+            }
         }
-    }
 
     @use_customizable_cli_parameters
     def __init__(self, parameters):
-        commands = [parameters.commands[key]].finalize() for key in ('pileup','')]
-        description = "<VariantCaller : '%s' -> %s" % (parameters.infile,
+        commands = [parameters.commands[key].finalize() for key in ('pileup','bcftools')]
+        description = "<VariantCaller : '%s' -> %s" %( "".join(parameters.infiles),
                                                        parameters.outfile)
         CommandNode.__init__(self,
                              description  = description,
@@ -74,11 +85,12 @@ class VariantNode(CommandNode):
                              dependencies = parameters.dependencies)
 
 
-def build_variant_nodes(options, reference, bams, dependencies = ()):
+def build_variant_nodes(options,reference, group, dependencies = ()):
+    outfile = os.path.join(options.destination,"variants.%s" % (group['Group']) + ".raw.vcf") 
 
     variants = VariantNode.customize(
         reference = reference,
-        infile = safe_coerce_to_tuple(bams),
+        infiles = group['Bams'],
         outfile = outfile
     )
     variants = variants.build_node()
@@ -94,7 +106,7 @@ def chain(pipeline, options, makefiles):
                     build_variant_nodes(
                         options,
                         makefile['Prefixes'][prefix]['Path'],
-                        makefile['Targets'][group]['BAMs']
+                        group
                     )
                 )
             

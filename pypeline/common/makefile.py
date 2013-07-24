@@ -46,7 +46,7 @@ def read_makefile(filename, defaults, validation):
 
     final = copy.deepcopy(defaults)
     final = apply_defaults(data, final, ("root",))
-    validate_makefile(final, validation, ("root",))
+    #validate_makefile(final, validation, ("root",))
 
     mtime = os.path.getmtime(os.path.realpath(filename))
     return {"Makefile"   : final,
