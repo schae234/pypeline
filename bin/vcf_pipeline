@@ -118,6 +118,7 @@ def main(argv):
 
         ui.print_info("Building %s VCF pipeline ..." % (command_key,), file = sys.stderr)
         nodes = command_func(pipeline, options, makefiles)
+    pipeline.add_nodes(nodes)
 
     for makefile in makefiles:
         if "Nodes" in makefile:

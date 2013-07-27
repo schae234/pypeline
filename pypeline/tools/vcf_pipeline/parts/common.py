@@ -29,7 +29,7 @@ import pypeline.ui as ui
 
 def parse_options(argv, parser = None):
     parser = OptionParser()
-    parser.add_option("--run",                default = False, action="store_true")
+    parser.add_option("--run",                default = True, action="store_true")
     parser.add_option("--verbose",            default = False, action="store_true")
     parser.add_option("--expand-nodes",       default = False, action="store_true")
     parser.add_option("--max-threads",        default = 12, type = int)

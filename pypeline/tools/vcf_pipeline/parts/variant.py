@@ -60,7 +60,6 @@ class VariantNode(CommandNode):
         for bam in infiles:
             pileup.add_option(bam)
 
-
         bcftools = AtomicCmdBuilder(
                 ['bcftools','view'],
                 IN_STDIN = pileup,
@@ -94,12 +93,13 @@ def build_variant_nodes(options,reference, group, dependencies = ()):
         outfile = outfile
     )
     variants = variants.build_node()
+    return variants
 
 
 def chain(pipeline, options, makefiles):
     destination = options.destination
+    nodes = []
     for makefile in makefiles:
-        nodes = []
         for prefix in makefile['Prefixes']:
             for group in makefile['Targets']:
                 nodes.append(
@@ -109,4 +109,5 @@ def chain(pipeline, options, makefiles):
                         group
                     )
                 )
+    return nodes
             
