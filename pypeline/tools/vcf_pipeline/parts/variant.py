@@ -25,6 +25,7 @@ import os
 
 from pypeline.node import CommandNode
 from pypeline.atomiccmd.command import AtomicCmd
+from pypeline.atomiccmd.builder import AtomicJavaCmdBuilder
 from pypeline.atomiccmd.sets import ParallelCmds
 from pypeline.atomiccmd.builder import \
      AtomicCmdBuilder, \
@@ -34,6 +35,7 @@ from pypeline.atomiccmd.builder import \
 from pypeline.nodes.samtools import GenotypeNode, TabixIndexNode, FastaIndexNode, MPileupNode
 
 import pypeline.common.versions as versions
+from pypeline.common.utilities import safe_coerce_to_tuple
 
 SAMTOOLS_VERSION = versions.Requirement(
     call   = ("samtools",),
@@ -41,9 +43,45 @@ SAMTOOLS_VERSION = versions.Requirement(
     checks = versions.GE(0, 1, 18)
 )
 
+class UnifiedGenotyperNode(CommandNode):
+    @create_customizable_cli_parameters
+    def customize(cls, reference, infiles, outfile, options, dependencies = ()):
+        infiles = safe_coerce_to_tuple(infiles)
+        jar_file = os.path.join(options.jar_root,"GenomeAnalysisTK.jar")
+        UnifiedGenotyper = AtomicJavaCmdBuilder(options,jar_file)
+        UnifiedGenotyper.set_option("-R", "%(IN_REFERENCE)s")
+        UnifiedGenotyper.set_option("-T", "UnifiedGenotyper")
+        for bam in infiles:
+            UnifiedGenotyper.add_option("-I", bam)
+        UnifiedGenotyper.set_option("-o", "%(OUT_VCFFILES)s")
+        UnifiedGenotyper.set_option("-stand_call_conf", "50.0")
+        UnifiedGenotyper.set_option("-stand_emit_conf", "10.0")
+        UnifiedGenotyper.set_option("-dcov", "200")
+
+        UnifiedGenotyper.set_kwargs(
+            IN_REFERENCE = reference,
+            OUT_VCFFILES = outfile
+        )
+
+        return {
+            "commands" : {
+                "unifiedgenotyper" : UnifiedGenotyper
+            }
+        }
+    @use_customizable_cli_parameters
+    def __init__(self, parameters):
+        commands = [parameters.commands['unifiedgenotyper'].finalize() ]
+        description = "<UnifiedGenotyper: %s -> %s" % ( "\n".join(parameters.infiles), parameters.outfile )
+
+        CommandNode.__init__(self,
+                             description = description,
+                             command = ParallelCmds(commands),
+                             dependencies = parameters.dependencies)
+
+
 class VariantNode(CommandNode):
     @create_customizable_cli_parameters
-    def customize(cls, reference, infiles, outfile, dependencies= ()):
+    def customize(cls, reference, infiles, outfile, options, dependencies= ()):
         assert outfile.lower().endswith('.vcf')
        
         # Create the pileup command 
@@ -60,6 +98,7 @@ class VariantNode(CommandNode):
         for bam in infiles:
             pileup.add_option(bam)
 
+        # Create variant caller command
         bcftools = AtomicCmdBuilder(
                 ['bcftools','view'],
                 IN_STDIN = pileup,
@@ -90,15 +129,25 @@ class VariantNode(CommandNode):
 
 
 def build_variant_nodes(options,reference, group, dependencies = ()):
-    outfile = os.path.join(options.destination,"variants.%s" % (group['Group']) + ".raw.vcf") 
-
-    variants = VariantNode.customize(
+    gatk_outfile = os.path.join(options.destination,"gatk.%s" % (group['Group']) + ".raw.vcf") 
+    gatk_variants = UnifiedGenotyperNode.customize(
         reference = reference,
         infiles = group['Bams'],
-        outfile = outfile
+        outfile = gatk_outfile,
+        options = options
     )
-    variants = variants.build_node()
-    return variants
+
+    samtools_outfile = os.path.join(options.destination,"samtools.%s" % (group['Group']) + ".raw.vcf") 
+    samtools_variants = VariantNode.customize(
+        reference = reference,
+        infiles = group['Bams'],
+        outfile = samtools_outfile,
+        options = options
+    )
+    samtools_variants = samtools_variants.build_node()
+    gatk_variants = gatk_variants.build_node()
+    
+    return gatk_variants
 
 
 def chain(pipeline, options, makefiles):

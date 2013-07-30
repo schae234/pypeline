@@ -21,6 +21,7 @@
 # SOFTWARE.
 #
 import os
+import ConfigParser
 
 from optparse import OptionParser
 import pypeline.tools.vcf_pipeline.makefile
@@ -28,13 +29,17 @@ import pypeline.ui as ui
 
 
 def parse_options(argv, parser = None):
+    # Read Deaults
+    defaults = _parse_defaults()
+
     parser = OptionParser()
     parser.add_option("--run",                default = True, action="store_true")
     parser.add_option("--verbose",            default = False, action="store_true")
     parser.add_option("--expand-nodes",       default = False, action="store_true")
     parser.add_option("--max-threads",        default = 12, type = int)
-    parser.add_option("--temp-root",          default = "./temp")
-    parser.add_option("--destination",        default = "./results")
+    parser.add_option("--temp-root",          default = "./Variant_Temp")
+    parser.add_option("--destination",        default = "./Variant_Results")
+    parser.add_option("--jar-root",           default = os.path.expanduser(defaults.get("jar_root")))
     
     (options, args) = parser.parse_args(argv)
 
@@ -44,55 +49,17 @@ def parse_options(argv, parser = None):
     
     return options, makefiles
 
-
-def get_genome_for_interval(interval, taxon):
-    default = interval.get("Genome")
-    genomes = taxon.get("Genomes", {})
-
-    return genomes.get(interval["Name"], default)
-
-    
-def collect_bed_files(options, interval, taxa):
-    bedfiles = {}
-    for taxon in taxa.itervalues():
-        name      = taxon["Name"]
-        prefix    = get_prefix(interval, taxon)
-        bedfile   = os.path.join(options.intervals_root, prefix + ".bed")
-        
-        bedfiles[name] = bedfile
-    return bedfiles
-
-
-def collect_fasta_files(options, interval, taxa):
-    fastafiles = {}
-    for taxon in taxa.itervalues():
-        name      = taxon["Name"]
-        prefix    = get_prefix(interval, taxon)
-        fastafile = os.path.join(options.destination, "genotypes", "%s.%s.fasta" % (name, prefix))
-
-        fastafiles[name] = fastafile
-    return fastafiles
-        
-
-def collect_sequences(options, interval, taxa):
-    bedfiles  = collect_bed_files(options, interval, taxa)
-    if len(set(bedfiles.itervalues())) > 1:
-        raise RuntimeError("Support for combining different intervals files not implemented!")
-
-    # Same set of sequences for all genomes
-    sequences = set()
-    with open(bedfiles.itervalues().next()) as bedhandle:
-        for line in bedhandle:
-            sequences.add(line.split()[3])
-    seqmap = dict(zip(sequences, sequences))
-
-    return dict((name, dict.fromkeys(taxa, name)) for name in seqmap)
-
-
-        
-def get_prefix(interval, taxon = None):
-    if not taxon:
-        return "{Genome}.{Name}"
-    
-    genome  = get_genome_for_interval(interval, taxon)
-    return "%s.%s" % (genome, interval["Name"])
+def _parse_defaults():
+    config = ConfigParser.SafeConfigParser()
+    # Read In pypeline Defaults
+    config_paths = (os.path.join(os.path.expanduser('~'), ".pypeline.conf"),
+        "/etc/pypeline.conf")
+    for config_path in config_paths:
+        if os.path.exists(config_path):
+            config.read(config_path)
+            break
+    try:
+        defaults = dict(config.items("Defaults"))
+    except ConfigParser.NoSectionError:
+        defaults = {}
+    return defaults
