@@ -1,0 +1,28 @@
+# Timestamp: 2013-07-17T11:09:17.883836
+#
+# Columns:
+#   Contig:       Contig, chromosome, or feature for which a depth histogram was
+#                 created. Unnamed features are named after the chromosome or
+#             contig on which they are located, with a star appended. For
+#             example "chr1*".
+#   Size:     The total size of the region. Multiple features with the same
+#             name are combined into one row, with the size representing to
+#                  total of these. Note that overlapping bases are counted 2 (or
+#                  more) times.
+#  Hits:           Sum of SE, PE_1, and PE_2 hits
+#  SE, PE_1, PE_2: Number of Single Ended, and Pair Ended (mate 1 and 2) hits overlapping
+#                  the current contig or intervals. Note that a hit may be counted multiple
+#                  times if it overlaps multiple intervals
+#  Collapsed:      Number of hits for PE pair collapsed into a single read
+#  M, I, D:        Number of aligned (M), inserted (I) and deleted (D) bases relative to references
+#  Coverage:       Average number of bases covering each position in the contig(s)/intervals(s).
+Name    Sample    Library    Contig                           Size     Hits    SE    PE_1    PE_2    Collapsed    M    I    D    Coverage
+Test    *         *          *                                16569    0       0     0       0       0            0    0    0    0.0
+Test    *         *          gi|251831106|ref|NC_012920.1|    16569    0       0     0       0       0            0    0    0    0.0
+#
+#
+Test    Test_1    *          *                                16569    0       0     0       0       0            0    0    0    0.0
+Test    Test_1    *          gi|251831106|ref|NC_012920.1|    16569    0       0     0       0       0            0    0    0    0.0
+#
+Test    Test_1    GATCAG     *                                16569    0       0     0       0       0            0    0    0    0.0
+Test    Test_1    GATCAG     gi|251831106|ref|NC_012920.1|    16569    0       0     0       0       0            0    0    0    0.0

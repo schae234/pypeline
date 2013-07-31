@@ -23,7 +23,7 @@
 
 import os
 
-from pypeline.node import CommandNode
+from pypeline.node import CommandNode, MetaNode
 from pypeline.atomiccmd.command import AtomicCmd
 from pypeline.atomiccmd.builder import AtomicJavaCmdBuilder
 from pypeline.atomiccmd.sets import ParallelCmds
@@ -60,7 +60,7 @@ class UnifiedGenotyperNode(CommandNode):
 
         UnifiedGenotyper.set_kwargs(
             IN_REFERENCE = reference,
-            OUT_VCFFILES = outfile
+            OUT_VCFFILES = outfile,
             OUT_VCF_IDX  = outfile + ".idx"
         )
 
@@ -147,8 +147,10 @@ def build_variant_nodes(options,reference, group, dependencies = ()):
     )
     samtools_variants = samtools_variants.build_node()
     gatk_variants = gatk_variants.build_node()
-    
-    return gatk_variants
+   
+    return MetaNode(description  = "Variant Callers",
+                    dependencies = [gatk_variants, samtools_variants]
+           )
 
 
 def chain(pipeline, options, makefiles):

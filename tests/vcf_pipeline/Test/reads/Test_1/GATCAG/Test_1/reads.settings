@@ -1,0 +1,28 @@
+Running AdapterRemoval ver. 1.5 using the following options:
+Paired end mode
+PCR1: AGATCGGAAGAGCACACGTCTGAACTCCAGTCACNNNNNNATCTCGTATGCCGTCTTCTGCTTG
+PCR2: AATGATACGGCGACCACCGAGATCTACACTCTTTCCCTACACGACGCTCTTCCGATCT
+Alignment shift value: 2
+Global mismatch threshold: 0.333333
+Quality base: 33
+Trimming Ns: Yes
+Trimming !"#: Yes
+Minimum genomic length: 25
+Collapse overlapping reads: Yes
+Minimum overlap (in case of collapse): 11
+
+Total number of read pairs: 100
+Number of unaligned read pairs: 1
+Number of well aligned pairs: 97
+Number of inadequate alignments: 0
+Number of discarded mate 1 reads: 1
+Number of singleton mate 1 reads: 1
+Number of discarded mate 2 reads: 2
+Number of singleton mate 2 reads: 0
+
+Number of read pairs with adapter: 94
+Number of full-length collapsed pairs: 97
+Number of truncated collapsed pairs: 0
+Number of retained reads: 100
+Number of retained nucleotides: 5495
+Average read length of trimmed reads: 54.95
