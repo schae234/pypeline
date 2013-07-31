@@ -118,8 +118,8 @@ class AtomicCmdBuilder:
         """See AtomiCmd.__init__ for parameters / keyword arguments."""
 
         self._call    = safe_coerce_to_tuple(call)
-        self._options = []  # list of dicts, gets built with set option command 
-        self._values  = []  # a list  
+        self._options = []  
+        self._values  = []  
         self._kwargs  = {}
         self._object  = None
 

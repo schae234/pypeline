@@ -61,6 +61,7 @@ class UnifiedGenotyperNode(CommandNode):
         UnifiedGenotyper.set_kwargs(
             IN_REFERENCE = reference,
             OUT_VCFFILES = outfile
+            OUT_VCF_IDX  = outfile + "idx"
         )
 
         return {

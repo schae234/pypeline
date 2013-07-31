@@ -408,6 +408,7 @@ def main(argv):
         return 0
 
     ui.print_info("Running BAM pipeline ...", file = sys.stderr)
+    import pdb; pdb.set_trace();
     if not pipeline.run(dry_run     = config.dry_run,
                         max_running = config.max_threads,
                         verbose     = config.verbose):

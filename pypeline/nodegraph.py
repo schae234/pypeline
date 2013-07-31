@@ -271,7 +271,9 @@ class NodeGraph:
     @classmethod
     def _collect_reverse_dependencies(cls, lst, rev_dependencies):
         for node in lst:
+            # Add node to set 
             rev_dependencies[node] # pylint: disable=W0104
+            # Recursively add both deps and subnodes
             for dependency in (node.dependencies | node.subnodes):
                 rev_dependencies[dependency].add(node)
             cls._collect_reverse_dependencies(node.dependencies, rev_dependencies)
