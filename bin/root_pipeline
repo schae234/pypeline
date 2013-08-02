@@ -83,10 +83,10 @@ def main(argv):
         print_usage()
         return 1
 
-    # Import vcf_pipeline specific parts
+    # Import Root_pipeline specific parts
     import pypeline.ui as ui
     import pypeline.tools.root_pipeline.parts.common as common
-    import pypeline.tools.root_pipeline.parts.root as root
+    import pypeline.tools.root_pipeline.parts.Chain as Chain
 
     # Import the Pypeline
     from pypeline import Pypeline
@@ -97,7 +97,7 @@ def main(argv):
     # available pipeline commands
     commands = {
         "mkfile" : mkfile, 
-        "run" : variant.chain,
+        "run" : Chain.chain,
     }
 
     # pop off the pipeline command
@@ -106,7 +106,7 @@ def main(argv):
     if not options:
         return 1
 
-    # Populate nodes and 
+    # Populate nodes and give them to the pipeline
     nodes = ()
     pipeline = Pypeline(options)
     for command in chain.split("+"):

@@ -38,6 +38,7 @@ from pypeline.nodes.picard import BuildSequenceDictNode
 from pypeline.nodes.samtools import FastaIndexNode, BAMIndexNode
 
 import pypeline.common.versions as versions
+import pypeline.tools.root_pipeline.parts.Experiment
 
 SAMTOOLS_VERSION = versions.Requirement(
     call   = ("samtools",),

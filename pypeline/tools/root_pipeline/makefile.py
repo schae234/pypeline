@@ -50,15 +50,19 @@ def read_makefiles(filenames):
         makefiles.append(makefile)
     return makefiles
 
-def _IsValidPrefixName(key, value):
+def IsValidPrefixName(key, value):
     return 1
+
+def _IsValidPipeline(path,value):
+    return 1 
+
 
 _DEFAULTS = {
    "Options" : {
         },
     "References" : {
     },
-    "Targets" : {
+    "Pipeline" : {
     }
 }
 
@@ -66,9 +70,10 @@ _VALIDATION = {
     "Options" : {
     },
     "References" : {
-        _IsValidPrefixName : {
+        IsValidPrefixName : {
             "Path" : IsStr,
             "Label" : IsStr,
         },
     },
+    "Pipeline" : _IsValidPipeline
 }
