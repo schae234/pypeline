@@ -130,18 +130,22 @@ class VariantNode(CommandNode):
 
 
 def build_variant_nodes(options,reference, group, dependencies = ()):
-    gatk_outfile = os.path.join(options.destination,"gatk.%s" % (group['Group']) + ".raw.vcf") 
+    gatk_outfile = os.path.join(options.makefile['OutDir'],"gatk.%s.%s" % (group['Group'],reference['Label']) + ".raw.vcf") 
     gatk_variants = UnifiedGenotyperNode.customize(
-        reference = reference,
-        infiles = group['Bams'],
+        reference = reference['Path'],
+        infiles = [	os.path.join(options.makefile['BaseDir'],
+			ind + "."+ reference['Label'] + ".realigned.bam") 
+			for ind in group['Inds']],
         outfile = gatk_outfile,
         options = options
     )
 
-    samtools_outfile = os.path.join(options.destination,"samtools.%s" % (group['Group']) + ".raw.vcf") 
+    samtools_outfile = os.path.join(options.makefile['OutDir'],"samtools.%s.%s" % (group['Group'],reference['Label']) + ".raw.vcf") 
     samtools_variants = VariantNode.customize(
-        reference = reference,
-        infiles = group['Bams'],
+        reference = reference['Path'],
+        infiles = [     os.path.join(options.makefile['BaseDir'],
+			ind + "."+ reference['Label'] + ".realigned.bam") 
+			for ind in group['Inds']],
         outfile = samtools_outfile,
         options = options
     )
@@ -154,15 +158,15 @@ def build_variant_nodes(options,reference, group, dependencies = ()):
 
 
 def chain(pipeline, options, makefiles):
-    destination = options.destination
     nodes = []
     for makefile in makefiles:
+	options.makefile = makefile['Options']
         for prefix in makefile['Prefixes']:
             for group in makefile['Targets']:
                 nodes.append(
                     build_variant_nodes(
-                        options,
-                        makefile['Prefixes'][prefix]['Path'],
+			options,
+                        makefile['Prefixes'][prefix],
                         group
                     )
                 )
