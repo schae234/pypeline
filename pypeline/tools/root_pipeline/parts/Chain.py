@@ -17,7 +17,7 @@
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
 # AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 #
 import os
@@ -38,7 +38,7 @@ from pypeline.nodes.picard import BuildSequenceDictNode
 from pypeline.nodes.samtools import FastaIndexNode, BAMIndexNode
 
 import pypeline.common.versions as versions
-import pypeline.tools.root_pipeline.parts.Experiment
+import pypeline.tools.root_pipeline.parts.Study
 
 SAMTOOLS_VERSION = versions.Requirement(
     call   = ("samtools",),
@@ -50,6 +50,12 @@ SAMTOOLS_VERSION = versions.Requirement(
 '''
     Build the root pipeline from scratch
 '''
+def build_root_pipeline(options, makefile):
+    nodes = []
+    import pdb; pdb.set_trace()
+    return MetaNode(description = "Root Pipeline",
+                    dependencies = nodes
+    )
 
 '''
     Build the pipeline based on options and makefiles
@@ -58,13 +64,9 @@ def chain(pipeline, options, makefiles):
     nodes = []
     # Do for each makefile
     for makefile in makefiles:
-        # Do for each reference 
-        for reference in makefile['References']:
-            # Do for each Root Pipeline Target
-            for target in makefile['Targets']:
-                # Append Pipeline Nodes
-                nodes.append(
-                    build_root_pipeline(options, makefile['References'][reference]['Path'], group)
-                ) 
+        # Append Pipeline Nodes
+        nodes.append(
+            build_root_pipeline(options, makefile)
+        ) 
         
     return nodes

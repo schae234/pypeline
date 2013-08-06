@@ -23,7 +23,7 @@
 import os
 
 from optparse import OptionParser
-import pypeline.tools.phylo_pipeline.makefile
+import pypeline.tools.root_pipeline.makefile
 import pypeline.ui as ui
 
 
@@ -33,15 +33,10 @@ def parse_options(argv, parser = None):
     parser.add_option("--verbose",            default = False, action="store_true")
     parser.add_option("--expand-nodes",       default = False, action="store_true")
     parser.add_option("--max-threads",        default = 12, type = int)
-    parser.add_option("--temp-root",          default = "./temp")
-    parser.add_option("--samples-root",       default = "./data/samples")
-    parser.add_option("--intervals-root",     default = "./data/intervals")
-    parser.add_option("--genomes-root",       default = "./data/genomes")
-    parser.add_option("--destination",        default = "./results")
     
     (options, args) = parser.parse_args(argv)
 
-    makefiles = pypeline.tools.phylo_pipeline.makefile.read_makefiles(args)
+    makefiles = pypeline.tools.root_pipeline.makefile.read_makefiles(args)
     if not makefiles:
         return None, None
     

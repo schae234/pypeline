@@ -75,5 +75,6 @@ _VALIDATION = {
             "Label" : IsStr,
         },
     },
-    "Pipeline" : _IsValidPipeline
+    "Pipeline" : {
+    }
 }
