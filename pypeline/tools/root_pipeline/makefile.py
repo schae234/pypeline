@@ -42,6 +42,10 @@ class MAKEFileError(RuntimeError):
     pass
 
 
+# TODO Implement default makefile
+def default():
+    return 1
+
 def read_makefiles(filenames):
     makefiles = []
     for filename in filenames:

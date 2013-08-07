@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# Copyright (c) 2013 Rob Schaefer <schae234@umn.edu>
+# Copyright (c) 2012 Mikkel Schubert <MSchubert@snm.ku.dk>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -17,18 +17,22 @@
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
 # AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 #
+import os
 
-import pypeline.tools.root_pipeline.parts.Sample as Sample
+import pypeline
+import pypeline.ui as ui
+
 from pypeline.node import MetaNode
+import pypeline.common.versions as versions
+from pypeline.tools.root_pipeline.parts.Study import StudyNode
 
-class ExperimentNode(MetaNode):
-    def __init__(self, accession, instrument, samples = ()):
-        self.accession = accesion
-        self.instrument = instrument
-        self.samples = [Sample(sam) for sam in samples]
-       
-    def run(self,config):
-        return 1 
+
+'''
+    Build the SRA node based on options and makefiles
+'''
+class SRANode(MetaNode):
+    def __init__(self,**kwargs):
+        MetaNode.__init__(description = "Short Read Archive Node")

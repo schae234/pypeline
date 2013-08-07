@@ -20,24 +20,16 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 #
-import os
-
 from optparse import OptionParser
-import pypeline.tools.root_pipeline.makefile
-import pypeline.ui as ui
-
 
 def parse_options(argv, parser = None):
     parser = OptionParser()
-    parser.add_option("--run",                default = False, action="store_true")
-    parser.add_option("--verbose",            default = False, action="store_true")
-    parser.add_option("--expand-nodes",       default = False, action="store_true")
-    parser.add_option("--max-threads",        default = 12, type = int)
-    
-    (options, args) = parser.parse_args(argv)
+    parser.add_option("--dry-run",            default = False, action="store_true")                 # Flag to run command
+    parser.add_option("--verbose",            default = False, action="store_true")                 # Flag to run in verbose mode
+    parser.add_option("--expand-nodes",       default = False, action="store_true")                 # Flag to show expanded nodes
+    parser.add_option("--max-threads",        default = 12, type = int)                             # Number of max threads allowed
+   
+    (options, optargs) = parser.parse_args(argv)
 
-    makefiles = pypeline.tools.root_pipeline.makefile.read_makefiles(args)
-    if not makefiles:
-        return None, None
-    
-    return options, makefiles
+    command = optargs.pop(0)                                                                           # After flags, command should be first
+    return command, options, optargs

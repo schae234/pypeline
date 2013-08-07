@@ -38,7 +38,7 @@ from pypeline.nodes.picard import BuildSequenceDictNode
 from pypeline.nodes.samtools import FastaIndexNode, BAMIndexNode
 
 import pypeline.common.versions as versions
-import pypeline.tools.root_pipeline.parts.Study
+from pypeline.tools.root_pipeline.parts.Study import StudyNode
 
 SAMTOOLS_VERSION = versions.Requirement(
     call   = ("samtools",),
@@ -48,25 +48,21 @@ SAMTOOLS_VERSION = versions.Requirement(
 
 
 '''
-    Build the root pipeline from scratch
-'''
-def build_root_pipeline(options, makefile):
-    nodes = []
-    import pdb; pdb.set_trace()
-    return MetaNode(description = "Root Pipeline",
-                    dependencies = nodes
-    )
+    The Root node is the (coincidentally) also the root node for the pipeline.
+    It keeps track of all the aspects of the project and sub node dependencies.
+
+    It main inputs are configuration parameters and a project makefile. It builds
+    everything else based on these parameters.
 
 '''
-    Build the pipeline based on options and makefiles
-'''
-def chain(pipeline, options, makefiles):
-    nodes = []
-    # Do for each makefile
-    for makefile in makefiles:
-        # Append Pipeline Nodes
-        nodes.append(
-            build_root_pipeline(options, makefile)
-        ) 
-        
-    return nodes
+class RootNode(Node):
+    def __init__(self, config, makefile, dependencies = ()):
+        # Assign class variables
+        self.config = config
+        self.makefile = makefile
+        self.dependencies = dependencies
+
+        # Process makefile        
+        for makefile in makefiles:
+            # Append Pipeline Nodes
+            

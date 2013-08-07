@@ -76,6 +76,15 @@ def _select_command(commands, command):
 
 
 def main(argv):
+    # Import Root_pipeline specific parts
+    import pypeline.ui as ui
+    import pypeline.tools.root_pipeline.parts.common as common 
+    import pypeline.tools.root_pipeline.makefile as makefile
+    from pypeline.tools.root_pipeline.Root import RootNode
+
+    # Import the Pypeline
+    from pypeline import Pypeline
+
     # sanity check
     if not _has_required_modules():
         return 1
@@ -83,48 +92,26 @@ def main(argv):
         print_usage()
         return 1
 
-    # Import Root_pipeline specific parts
-    import pypeline.ui as ui
-    import pypeline.tools.root_pipeline.parts.common as common 
-    import pypeline.tools.root_pipeline.parts.Chain as Chain
-
-    # Import the Pypeline
-    from pypeline import Pypeline
-
-    def mkfile(pipeline,options,makefiles):
-        ui.print_info("Reading Makefile working")
-
-    # available pipeline commands
+    # available Root Pipeline commands
     commands = {
-        "mkfile" : mkfile, 
-        "run" : Chain.chain,
+        "mkfile" : makefile.default,                         # does nothing right now 
+        "run" : RootNode,                                    # returns a Root node
     }
 
     # pop off the pipeline command
-    chain = argv.pop(0)
-    options, makefiles = common.parse_options(argv)
-    if not options:
-        return 1
+    command, options, optargs = common.parse_options(argv)
 
     # Populate nodes and give them to the pipeline
-    nodes = ()
-    pipeline = Pypeline(options)
-    for command in chain.split("+"):
-        command_key, command_func = _select_command(commands, command)
-        if not command_func:
-            print_usage()
-            return 1
+    nodes = []
+    nodes.append(commands[command](options, optargs))
+    ui.print_info("RootPipeline %s: ..." % (command), file = sys.stderr)
 
-        ui.print_info("Building %s Root pipeline ..." % (command_key,), file = sys.stderr)
-        nodes = command_func(pipeline, options, makefiles)
+    # Create a new pypeline and add appropriate nodes
+    pipeline = Pypeline(options)
     pipeline.add_nodes(nodes)
 
-    for makefile in makefiles:
-        if "Nodes" in makefile:
-            pipeline.add_nodes(makefile["Nodes"])
-
     if not pipeline.run(max_running = options.max_threads,
-                        dry_run     = not options.run,
+                        dry_run     = options.dry_run,
                         verbose     = options.verbose,
                         collapse    = options.expand_nodes):
         return 1
