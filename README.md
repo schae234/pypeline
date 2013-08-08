@@ -1,3 +1,11 @@
+Root Pipeline
+=============
+The Root pipeline was designed to analyze diverse root tissue RNA-Seq data from off the machine raw data to finish. It was implemented
+around the short read archive format and expects the project to be structured as specified by the SRA. Project pipelines are implemented 
+through Mikkel Schubberts node and pypeline system and is tailored towards Root RNA-Seq data analysis but in general enough to where any 
+project structured through SRA could be analyzed using this setup.  
+
+
 Installation instructions for BAM pipeline
 ==========================================
 The following instructions will use ~/install as the installation directory for the pipeline and required tools, but any directory may be used.
