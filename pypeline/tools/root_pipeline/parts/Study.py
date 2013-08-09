@@ -22,16 +22,27 @@
 #
 
 import os
-import pypeline.tools.root_pipeline.parts.Experiment as Experiment
+from  pypeline.tools.root_pipeline.parts.Experiment import ExperimentNode
 from pypeline.node import MetaNode
 
 
 class StudyNode(MetaNode):
-    def __init__(self,title, submitter, accession, experiments = ()):
+    def __init__(   
+            self, title = "Unknown Study", 
+            submitter = "Unknown Submitter", 
+            accession = "TBD", experiments = ()):
         self.title = title
         self.submitter = submitter
         self.accession = accession
-        self.experiments = [Experiment(exp) for exp in experiments]
+        self.experiments = [
+            ExperimentNode(
+                title      = exp['Title'],
+                accession  = exp['Accession'] ,
+                instrument = exp['Instrument'],
+                samples    = exp['Samples']
+            ) 
+            for exp in experiments
+        ]
         MetaNode.__init__(self,
             description = "{} Study Node".format(self.title),
             subnodes = self.experiments,

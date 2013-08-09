@@ -25,7 +25,7 @@ import os
 import pypeline
 import pypeline.ui as ui
 
-from pypeline.node import Node
+from pypeline.node import Node, MetaNode
 
 import pypeline.common.versions as versions
 import pypeline.tools.root_pipeline.makefile as makefile
@@ -46,10 +46,11 @@ SAMTOOLS_VERSION = versions.Requirement(
     everything else based on these parameters.
 
 '''
-class RootNode(Node):
+
+class RootNode(MetaNode):
     def __init__(self, config, optargs, subnodes = (), dependencies = ()):
         Node.__init__(self,
-            description = "<Root Node>",
+            description = "<Root Pipeline Node>",
             subnodes = subnodes,
             dependencies = dependencies
         )
@@ -59,7 +60,9 @@ class RootNode(Node):
         self.SRAs = []
         self.references = ()
         for m in self.makefiles:
-            import pdb; pdb.set_trace()
-            self.SRAs.append(SRANode(m['SRA']))
-            for ref in m['References']:
-                self.references.append(ref)
+            SRA = SRANode(
+                title = m['SRA']['Title'],
+                accession = m['SRA']['Accession'],
+                studies = m['SRA']['Studies']
+            )
+            self.SRAs.append(SRA)

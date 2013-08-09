@@ -38,9 +38,9 @@ from pypeline.common.makefile import \
      CLI_PARAMETERS, \
      Or
 
+
 class MAKEFileError(RuntimeError):
     pass
-
 
 # TODO Implement default makefile
 def default():

@@ -34,5 +34,15 @@ from pypeline.tools.root_pipeline.parts.Study import StudyNode
     Build the SRA node based on options and makefiles
 '''
 class SRANode(MetaNode):
-    def __init__(self,**kwargs):
-        MetaNode.__init__(description = "Short Read Archive Node")
+    def __init__(self, accession = "TBD", title = 'Empty Short Read Archive', studies = ()):
+        self.title = title
+        self.accession = accession
+        self.studies = [
+            StudyNode(
+                title     = study['Title'],
+                submitter = study['Submitter'],
+                accession = study['Accession'],
+                experiments = study['Experiments'])
+            for study in studies
+        ]
+        MetaNode.__init__(self,description = "Short Read Archive Node")
