@@ -118,6 +118,7 @@ class AtomicCmd:
         if not self._command or not self._command[0]:
             raise ValueError("Empty command in AtomicCmd constructor")
 
+        # Arguments are files in this case
         self._files     = self._process_arguments(id(self), self._command, kwargs)
         self._file_sets = self._build_files_map(self._command, self._files)
 
@@ -276,11 +277,13 @@ class AtomicCmd:
                 files[key] = value
 
         executable = os.path.basename(command[0])
+        # Create stdout and stderr if not passed in to constructor
         for pipe in ("STDOUT", "STDERR"):
             if not (kwargs.get("OUT_" + pipe) or kwargs.get("TEMP_OUT_" + pipe)):
                 filename = "pipe_%s_%i.%s" % (executable, proc_id, pipe.lower())
                 files["TEMP_OUT_" + pipe] = filename
 
+        # Check that output files are only specified once
         output_files = collections.defaultdict(list)
         for (key, filename) in kwargs.iteritems():
             if key.startswith("TEMP_OUT_") or key.startswith("OUT_"):
@@ -306,6 +309,7 @@ class AtomicCmd:
 
     @classmethod
     def _validate_argument(cls, key, value):
+        """ """
         if (key.rstrip("_") + "_") in _PREFIXES:
             raise ValueError("Argument key lacks name: %r" % key)
         elif not any(key.startswith(prefix) for prefix in _PREFIXES):
@@ -370,17 +374,20 @@ class AtomicCmd:
                      "EXEC"   : "executable",
                      "AUX"    : "auxiliary",
                      "CHECK"  : "requirements"}
-        file_sets = dict((key, set()) for key in key_map.itervalues())
+        # make a file set from VALUES 
+        file_sets = dict((val, set()) for val in key_map.itervalues())
 
         file_sets["executable"].add(command[0])
         for (key, filename) in files.iteritems():
+            # We are either dealing with a filename or a requirement check
             if isinstance(filename, types.StringTypes) or key.startswith("CHECK_"):
                 if key.startswith("TEMP_OUT_"):
                     file_sets["temporary_fname"].add(filename)
                 elif not key.startswith("TEMP_"):
+                    # put file in the right set based on prefix
                     key = key_map[key.split("_", 1)[0]]
                     file_sets[key].add(filename)
-
+        # Strip leading path names (we deal with paths explicitly)
         file_sets["temporary_fname"] = map(os.path.basename, file_sets["temporary_fname"])
         file_sets["output_fname"]    = map(os.path.basename, file_sets["output"])
 

@@ -24,7 +24,7 @@
 from pypeline.node import MetaNode
 from pypeline.tools.root_pipeline.parts.Run import RunNode
 
-class SampleNode(MetaNode):
+class SampleNode(RunNode):
     def __init__(self, title = "Unknown Sample", accession="TBD", runs = ()):
         self.title = title
         self.accession = accession

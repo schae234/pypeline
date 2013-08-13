@@ -103,7 +103,7 @@ class AtomicCmdBuilder:
       Singletons     - May be specified exactly one (using 'set_option'), with
                        subsequent calls to 'set_option' overwriting the previous
                        value of the option (if any).
-      Non-singletons - May be specified one or more times (using 'push_option'),
+      Non-singletons - May be specified one or more times (using 'add_option'),
                        with each subsequent call added to list of existing
                        parameters.
 

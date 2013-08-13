@@ -21,10 +21,9 @@
 # SOFTWARE.
 #
 
-from pypeline.node import MetaNode
-from pypeline.tools.root_pipeline.parts.Sample import SampleNode
+from pypeline.tools.root_pipeline.parts.Run import Run
 
-class ExperimentNode(MetaNode):
+class Experiment(Run):
     def __init__(self, title="Unknown Experiment", accession="TDB", instrument="Unknown Instrument", samples = ()):
         self.title = title
         self.accession = accession
@@ -37,7 +36,5 @@ class ExperimentNode(MetaNode):
             )
             for sam in samples
         ]
-        MetaNode.__init__(self, description = "Experiment Node: {}".format(self.accession))
+        Run.__init__(self, description = "Experiment Node: {}".format(self.accession))
        
-    def run(self,config):
-        return 1 

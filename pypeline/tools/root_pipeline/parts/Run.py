@@ -30,15 +30,15 @@ from pypeline.atomiccmd.builder import \
      AtomicCmdBuilder, \
      apply_options
 
-from pypeline.node import MetaNode, CommandNode
+from pypeline.node import CommandNode
 
 class fastqDumpNode(CommandNode):
     @create_customizable_cli_parameters
-    def customize(self,in_sra, outfile, dependencies = ()):
+    def customize(self, in_sra, outfile, dependencies = ()):
         fastq_dump = AtomicCmdBuilder(['fastq-dump', "%(IN_SRA)s"],
                                         IN_SRA = in_sra,
                                         OUT_STDOUT = outfile)
-    return {"commands" : {"fastq_dump" : fastq_dump}}
+        return {"commands" : {"fastq_dump" : fastq_dump}}
     @use_customizable_cli_parameters
     def __init__(self, parameters):
         commands = [parameters.commands[key].finalize() for key in ("fastq_dump",)]
@@ -48,9 +48,9 @@ class fastqDumpNode(CommandNode):
             command = ParallelCmds(commands),
             dependecies = parameters.dependencies)
 
-class catNode(CommandNode):
-    @create_customizalbe_cli_parameters
-    def customize(self, infile, dependencies = ())
+class CatNode(CommandNode):
+    @create_customizable_cli_parameters
+    def customize(self, infile, dependencies = ()):
         cat = AtomicCmdBuilder(['cat','%(IN_FILE)s'])
     def __init__(self):
         CommandNode.__init__(self,
@@ -58,11 +58,58 @@ class catNode(CommandNode):
             command = AtomicCmd()
         )
 
-class RunNode(MetaNode):
-    def __init__(self,accession = "TBD", infile = ""):
+class Run(object):
+    ''' 
+        The Run node is the most basic object in the SRA pipeline. It contains the file 
+        which holds the data for the actual run. It can be a part of higher order objects
+        such as samples and experiments. 
+    '''
+    # Class Properties
+    mapped = False
+    bam    = None
+
+    def __init__(self,accession = "TBD", infiles = ()):
         self.accession = accession
         self.infile = infile
-        MetaNode.__init__(description = "Run Node")
+
+   
+    # Methods 
+    def abi_dump(self):
 
     def fastq_dump(self):
-        dmp = fastqDumpNode.customize(self.infile, )
+        return AtomicCmdBuilder(["fastq-dump", "%(IN_SRA)s"], IN_SRA=self.infile)
+
+    def illumina_dump(self):
+        return -1
+
+    def sam_dump(self):
+        return -1
+
+    def sff_dump(self):
+        return -1
+
+    def sra_dbcc(self):
+        return -1
+
+    def sra_pileup(self):
+        return -1
+
+    def vdb_dump(self):
+        return -1
+
+    def vbd_encrypt(self):
+        return -1
+
+    def vdb_decrypt(self):
+        return -1
+
+    def vdb_validate(self):
+        return -1
+
+    # Node Methods
+
+    def build_mapping_pipeline(self):
+        nodes = []
+        return nodes
+
+        
