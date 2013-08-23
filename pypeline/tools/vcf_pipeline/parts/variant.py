@@ -105,7 +105,6 @@ class VariantNode(CommandNode):
                 IN_STDIN = pileup,
                 OUT_STDOUT = outfile
         )
-        bcftools.set_option('-b')
         bcftools.set_option('-v')
         bcftools.set_option('-c')
         bcftools.set_option('-g')

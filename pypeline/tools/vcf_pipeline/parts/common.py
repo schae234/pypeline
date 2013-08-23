@@ -37,8 +37,8 @@ def parse_options(argv, parser = None):
     parser.add_option("--verbose",            default = False, action="store_true")
     parser.add_option("--expand-nodes",       default = False, action="store_true")
     parser.add_option("--max-threads",        default = 12, type = int)
-    parser.add_option("--temp-root",          default = "./Variant_Temp")
-    parser.add_option("--destination",        default = "./Variant_Results")
+    parser.add_option("--temp-root",          default = "./000_Temp")
+    parser.add_option("--destination",        default = "./000_Variants")
     parser.add_option("--jar-root",           default = os.path.expanduser(defaults.get("jar_root")))
     
     (options, args) = parser.parse_args(argv)
