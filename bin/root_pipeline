@@ -95,7 +95,7 @@ def main(argv):
     # available Root Pipeline commands
     commands = {
         "mkfile" : makefile.default,                         # does nothing right now 
-        "run" : RootNode,                                    # returns a Root node
+        "run" : RootNode.chain,                              # returns a Root node
     }
 
     # pop off the pipeline command
