@@ -53,8 +53,8 @@ class FastaToPAMLPhyNode(Node):
             msa.pop(excluded_group)
 
         lines = []
-        lines.append("  %i %i" % (len(msa), len(msa.itervalues().next())))
-        for (name, seq) in sorted(msa.iteritems()):
+        lines.append("  %i %i" % (len(msa), len(next(iter(msa.values())))))
+        for (name, seq) in sorted(msa.items()):
             lines.append("")
             lines.append(name)
 
@@ -119,7 +119,7 @@ class CodemlNode(CommandNode):
     def _run(self, config, temp):
         try:
             CommandNode._run(self, config, temp)
-        except NodeError, error:
+        except NodeError as error:
             # Allow failures due to low coverage
             with open(fileutils.reroot_path(temp, "template.stdout")) as handle:
                 codeml = handle.read()
@@ -153,7 +153,7 @@ class CodemlNode(CommandNode):
 
 def build_codeml_nodes(options, settings, interval, taxa, filtering, dependencies):
     in_postfix, out_postfix, afa_ext = "", "", ".afa"
-    if any(filtering.itervalues()):
+    if any(filtering.values()):
         in_postfix = out_postfix = ".filtered"
     if not settings["MSAlignment"]["Enabled"]:
         out_postfix = ".unaligned" + out_postfix
@@ -178,17 +178,17 @@ def build_codeml_nodes(options, settings, interval, taxa, filtering, dependencie
 
     phylip_meta = MetaNode(description  = "<FastaToPAMLPhyNodes: '%s/*.%s' -> '%s/*.phy'>" \
                            % (sequencedir, afa_ext, destination),
-                           subnodes     = phylip_nodes.values(),
+                           subnodes     = list(phylip_nodes.values()),
                            dependencies = dependencies)
 
     codeml_nodes = []
-    for (ctl_name, ctl_file) in paml["codeml"]["Control Files"].iteritems():
-        for (sequence, node) in phylip_nodes.iteritems():
+    for (ctl_name, ctl_file) in paml["codeml"]["Control Files"].items():
+        for (sequence, node) in phylip_nodes.items():
             output_prefix = os.path.join(destination, sequence + ".%s" % (ctl_name,))
 
             codeml = CodemlNode(control_file  = ctl_file,
                                 trees_file    = paml["codeml"]["Tree File"],
-                                sequence_file = iter(node.output_files).next(),
+                                sequence_file = next(iter(node.output_files)),
                                 output_prefix = output_prefix,
                                 dependencies  = node)
             codeml_nodes.append(codeml)
@@ -208,7 +208,7 @@ def chain_codeml(_pipeline, options, makefiles):
         taxa      = makefile["Project"]["Taxa"]
         options.destination = os.path.join(destination, makefile["Project"]["Title"])
 
-        for interval in intervals.itervalues():
+        for interval in intervals.values():
             nodes.append(build_codeml_nodes(options, makefile, interval, taxa, filtering, makefile["Nodes"]))
         makefile["Nodes"] = tuple(nodes)
     options.destination = destination

@@ -106,7 +106,7 @@ def get_ml_phenotype(vcf):
     genotypes.extend(vcf.ref.split(","))
     genotypes.extend(vcf.alt.split(","))
 
-    PL = map(int, get_format(vcf)["PL"].split(","))
+    PL = list(map(int, get_format(vcf)["PL"].split(",")))
 
     expected_length = (len(genotypes) * (len(genotypes) + 1)) // 2
     if len(PL) != expected_length:
@@ -117,12 +117,12 @@ def get_ml_phenotype(vcf):
         # No single most likely genotype
         return ("N", "N")
 
-    most_likely = min(xrange(len(PL)), key=PL.__getitem__)
+    most_likely = min(range(len(PL)), key=PL.__getitem__)
     prefix, postfix = _genotype_indices[most_likely]
 
     return (genotypes[prefix], genotypes[postfix])
 
 
 def get_format(vcf, sample = 0):
-    return dict(zip(vcf.format.split(":"),
-                    vcf[0].split(":")))
+    return dict(list(zip(vcf.format.split(":"),
+                    vcf[0].split(":"))))

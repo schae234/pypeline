@@ -81,7 +81,7 @@ class _CommandSet:
             for filename in command.optional_temp_files:
                 filenames[filename] += 1
 
-        clobbered = [filename for (filename, count) in filenames.items() if (count > 1)]
+        clobbered = [filename for (filename, count) in list(filenames.items()) if (count > 1)]
         if any(clobbered):
             raise CmdError("Commands clobber each others' files: %s" % (", ".join(clobbered),))
 

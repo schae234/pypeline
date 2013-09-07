@@ -86,7 +86,7 @@ class Lane:
         if not record["Options"]["Aligners"][aln_key].get("UseSeed", True):
             postfix.append("noSeed")
 
-        for (key, input_filename) in self.reads.files.iteritems():
+        for (key, input_filename) in self.reads.files.items():
             output_filename = os.path.join(self.folder, "%s.%s.bam" % (key.lower(), ".".join(postfix)))
             parameters = {"output_file"  : output_filename,
                           "prefix"       : prefix["Path"],
@@ -112,7 +112,7 @@ def _apply_aln_user_parameters(mkfile_params, params, aligners):
         apply_options(params.commands[aligner_key], mkfile_params)
 
 def _append_aln_user_parameters(mkfile_params, lst):
-    for (param, value) in mkfile_params.iteritems():
+    for (param, value) in mkfile_params.items():
         if param.startswith("-"):
             for value in safe_coerce_to_tuple(value):
                 lst.append(param)

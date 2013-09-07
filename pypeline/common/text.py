@@ -43,19 +43,19 @@ def padded_table(table):
     str_rows  = []
     nsizes, sizes = None, []
     for row in table:
-        if not isinstance(row, types.StringTypes):
-            row = map(str, row)
+        if not isinstance(row, str):
+            row = list(map(str, row))
             if (len(row) != nsizes):
                 if nsizes is not None:
                     raise TableError("Malformed table; rows with different number of columns: %r" % row)
                 nsizes = len(row)
                 sizes  = [0] * nsizes
-            sizes = map(max, zip(sizes, map(len, row)))
+            sizes = list(map(max, list(zip(sizes, list(map(len, row))))))
         str_rows.append(row)
 
     sizes = [(size + _MIN_PADDING) for size in sizes]
     for row in str_rows:
-        if not isinstance(row, types.StringTypes):
+        if not isinstance(row, str):
             row = "".join(field.ljust(padding) for (field, padding) in zip(row, sizes)).rstrip() # pragma: no coverage
         yield row
 
@@ -75,7 +75,7 @@ def parse_padded_table(lines, header = None):
         if len(fields) != nheader:
             raise TableError("Malformed table; #columns does not match header: %r vs %r" % (header, fields))
 
-        yield dict(zip(header, fields))
+        yield dict(list(zip(header, fields)))
 
 
 def parse_lines(lines, parser):

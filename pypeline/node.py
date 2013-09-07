@@ -75,7 +75,7 @@ class Node(object):
         try:
             # Ensure that the node can be used in a multiprocessing context
             fast_pickle_test(self)
-        except pickle.PicklingError, error:
+        except pickle.PicklingError as error:
             raise NodeError("Node could not be pickled, please file a bug-report:\n"
                             "\tNode: %s\n\tError: %s" % (self, error))
 
@@ -135,10 +135,10 @@ class Node(object):
             self._teardown(config, temp)
 
             os.rmdir(temp)
-        except NodeError, error:
+        except NodeError as error:
             self._write_error_log(temp, error)
             raise error
-        except Exception, error:
+        except Exception as error:
             self._write_error_log(temp, error)
             error = NodeUnhandledException(traceback.format_exc())
             raise error
@@ -222,13 +222,13 @@ class Node(object):
     def _validate_files(cls, files):
         files = safe_coerce_to_frozenset(files)
         for filename in files:
-            if not isinstance(filename, types.StringTypes):
+            if not isinstance(filename, str):
                 raise TypeError('Files must be strings, not %r' % filename.__class__.__name__)
         return files
 
     @classmethod
     def _validate_nthreads(cls, threads):
-        if not isinstance(threads, (types.IntType, types.LongType)):
+        if not isinstance(threads, int):
             raise TypeError("'threads' must be a positive integer, not %s" % (type(threads),))
         elif threads < 1:
             raise ValueError("'threads' must be a positive integer, not %i" % (threads,))
@@ -317,4 +317,4 @@ class MetaNode(Node):
 
 
 # Types that are allowed for the 'description' property
-_DESC_TYPES = types.StringTypes + (types.NoneType,)
+_DESC_TYPES = (str , type(None))

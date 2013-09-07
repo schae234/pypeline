@@ -21,7 +21,7 @@
 # SOFTWARE.
 #
 import os
-import StringIO
+import io
 
 import nose.tools
 from nose.tools import assert_equal, assert_raises
@@ -235,7 +235,7 @@ def test_print_fasta__complete_line_test():
                  "foobar" : "CGAATG" * 10 + "TGTCAT" * 5}
     expected  = ">barfoo\n%s\n%s\n" % ("ACGATA" * 10, "CGATAG" * 5)
     expected += ">foobar\n%s\n%s\n" % ("CGAATG" * 10, "TGTCAT" * 5)
-    stringf = StringIO.StringIO()
+    stringf = io.StringIO()
     with RequiredCall(_VALIDATION_PATH, args = [msa]):
         print_msa(msa, stringf)
     assert_equal(stringf.getvalue(), expected)
@@ -250,13 +250,13 @@ def test_print_fasta__complete_line_test():
 def test_validate_msa__missing_names_first():
     msa_1 = dict(_JOIN_MSA_1)
     msa_2 = dict(_JOIN_MSA_2)
-    msa_1.pop(msa_1.keys()[0])
+    msa_1.pop(list(msa_1.keys())[0])
     assert_raises(MSAError, validate_msa, msa_1, msa_2)
 
 def test_validate_msa__missing_names_second():
     msa_1 = dict(_JOIN_MSA_1)
     msa_2 = dict(_JOIN_MSA_2)
-    msa_2.pop(msa_2.keys()[0])
+    msa_2.pop(list(msa_2.keys())[0])
     assert_raises(MSAError, validate_msa, msa_1, msa_2)
 
 def test_validate_msa__differing_lengths():

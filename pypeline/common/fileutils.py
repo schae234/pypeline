@@ -64,7 +64,7 @@ def create_temp_dir(root):
         return os.path.join(root, str(uuid.uuid4()))
 
     path = _generate_path()
-    while not make_dirs(path, mode = 0700):
+    while not make_dirs(path, mode = 0o700):
         path = _generate_path()
     return path
 
@@ -121,7 +121,7 @@ def missing_executables(filenames):
     return result
 
 
-def make_dirs(directory, mode = 0777):
+def make_dirs(directory, mode = 0o777):
     """Wrapper around os.makedirs to make it suitable for using
     in a multithreaded/multiprocessing enviroment: Unlike the
     regular function, this wrapper does not throw an exception if
@@ -136,7 +136,7 @@ def make_dirs(directory, mode = 0777):
     try:
         os.makedirs(directory, mode = mode)
         return True
-    except OSError, error:
+    except OSError as error:
         # make_dirs be called by multiple subprocesses at the same time,
         # so only raise if the actual creation of the folder failed
         if error.errno != errno.EEXIST:
@@ -193,7 +193,7 @@ def try_remove(filename):
     try:
         os.remove(filename)
         return True
-    except OSError, error:
+    except OSError as error:
         if error.errno != errno.ENOENT:
             raise
         return False

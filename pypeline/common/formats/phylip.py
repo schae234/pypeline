@@ -36,13 +36,13 @@ _LINE_SIZE       = _NUM_BLOCKS * _BLOCK_SIZE + (_NUM_BLOCKS - 1) * _BLOCK_SPACIN
 
 def sequential_phy(msa, add_flag = False, max_name_length = _MAX_NAME_LENGTH):
     validate_msa(msa)
-    header = "%i %i" % (len(msa), len(msa.values()[0]))
+    header = "%i %i" % (len(msa), len(list(msa.values())[0]))
     if add_flag:
         header += " S"
 
     spacing = " " * _BLOCK_SPACING
     result = [header, ""]
-    for (name, sequence) in sorted(msa.iteritems()):
+    for (name, sequence) in sorted(msa.items()):
         result.append(name[:max_name_length])
         
         blocks = grouper(_BLOCK_SIZE, sequence, fillvalue = "")
@@ -56,7 +56,7 @@ def sequential_phy(msa, add_flag = False, max_name_length = _MAX_NAME_LENGTH):
 
 def interleaved_phy(msa, add_flag = False, max_name_length = _MAX_NAME_LENGTH):
     validate_msa(msa)
-    header = "%i %i" % (len(msa), len(msa.values()[0]))
+    header = "%i %i" % (len(msa), len(list(msa.values())[0]))
     if add_flag:
         header += " I"
     result = [header, ""]
@@ -66,7 +66,7 @@ def interleaved_phy(msa, add_flag = False, max_name_length = _MAX_NAME_LENGTH):
 
     streams = []
     spacing = " " * _BLOCK_SPACING
-    for (name, sequence) in sorted(msa.iteritems()):
+    for (name, sequence) in sorted(msa.items()):
         name    = name[:max_name_length]
         padding = (padded_len - len(name)) * " "
         

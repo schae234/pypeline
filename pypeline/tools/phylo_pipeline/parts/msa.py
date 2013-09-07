@@ -30,7 +30,7 @@ from pypeline.nodes.sequences import CollectSequencesNode, \
     FilterSingletonsMetaNode
 from pypeline.nodes.mafft import MetaMAFFTNode
 
-import common
+from . import common
     
 
 
@@ -55,10 +55,10 @@ def build_msa_nodes(options, settings, interval, taxa, filtering, dependencies):
                                preset       = settings["MAFFT"]["Algorithm"],
                                dependencies = fastafiles)
 
-    if not any(filtering.itervalues()):
+    if not any(filtering.values()):
         return afafiles
 
-    return FilterSingletonsMetaNode(input_files  = dict((iter(node.output_files).next(), node) for node in afafiles.subnodes),
+    return FilterSingletonsMetaNode(input_files  = dict((next(iter(node.output_files)), node) for node in afafiles.subnodes),
                                     destination  = sequencedir + ".filtered",
                                     filter_by    = filtering,
                                     dependencies = afafiles)
@@ -74,7 +74,7 @@ def chain(pipeline, options, makefiles):
         taxa      = makefile["Project"]["Taxa"]
         options.destination = os.path.join(destination, makefile["Project"]["Title"])
 
-        for interval in intervals.itervalues():
+        for interval in intervals.values():
             nodes.append(build_msa_nodes(options, settings, interval, taxa, filtering, makefile["Nodes"]))
         makefile["Nodes"] = tuple(nodes)
     options.destination = destination

@@ -189,11 +189,11 @@ class And(_Check):
             check.set_ppr(func)
 
     def __call__(self, value):
-        failures = map(str, self._checks)
+        failures = list(map(str, self._checks))
         for (index, check) in enumerate(self._checks):
             try:
                 check(value)
-            except VersionRequirementError, error:
+            except VersionRequirementError as error:
                 failures[index] = str(error)
                 raise VersionRequirementError("(%s)" % (" AND ".join(failures)))
 
@@ -216,7 +216,7 @@ class Or(_Check):
         for check in self._checks:
             try:
                 return check(value)
-            except VersionRequirementError, error:
+            except VersionRequirementError as error:
                 failures.append(error)
         raise VersionRequirementError("Failed to meet version requirements: (%s)" \
                                       % " OR ".join(map(str, failures)))
@@ -232,7 +232,7 @@ def _run(call):
                                 stderr = subprocess.STDOUT)
 
         return proc.communicate()[0]
-    except (OSError, subprocess.CalledProcessError), error:
+    except (OSError, subprocess.CalledProcessError) as error:
         return str(error)
 
 
@@ -256,5 +256,5 @@ def _pprint(ppr, value):
 
     try:
         return ppr.format(*value)
-    except ValueError, e:
+    except ValueError as e:
         raise ValueError("%s: %s.format(*%s)" % (str(e), repr(ppr), repr(value)))

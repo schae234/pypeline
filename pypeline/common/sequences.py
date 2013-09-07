@@ -108,7 +108,7 @@ def count_nts(sequence):
         if count:
             counts[nucleotide] = count
 
-    if len(sequence) != sum(counts.itervalues()):
+    if len(sequence) != sum(counts.values()):
         raise ValueError("Sequence contains non-(IUPAC-)nucleotides: %s" % \
                          ", ".join(set(sequence) - set(counts)))
 
@@ -129,7 +129,7 @@ def count_gc_diploid(sequence):
     nor in the total number of bases."""
     total_nts = total_gc = 0
     counts = count_nts(sequence)
-    for (code, count) in counts.iteritems():
+    for (code, count) in counts.items():
         value = 0
         if code == "N":
             continue
@@ -165,7 +165,7 @@ def split(sequence, split_by = "123"):
 
     results = dict((key, []) for key in split_by)
     keys = itertools.chain(itertools.cycle(split_by))
-    for (key, nucleotide) in itertools.izip(keys, sequence):
+    for (key, nucleotide) in zip(keys, sequence):
         results[key].append(nucleotide)
 
     for key in results:

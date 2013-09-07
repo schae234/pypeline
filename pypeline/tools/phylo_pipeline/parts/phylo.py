@@ -31,12 +31,12 @@ from pypeline.nodes.formats import FastaToPartitionedInterleavedPhyNode
 from pypeline.nodes.raxml import *
 from pypeline.nodes.mafft import MetaMAFFTNode
 
-import common
+from . import common
 
 
 def build_supermatrix(options, settings, afa_ext, destination, intervals, taxa, filtering_postfix, dependencies):
     input_files = {}
-    for interval in intervals.itervalues():
+    for interval in intervals.values():
         sequencedir = os.path.join(options.destination, "alignments", interval["Name"] + filtering_postfix)
 
         for sequence in common.collect_sequences(options, interval, taxa):
@@ -79,7 +79,7 @@ def _examl_nodes(settings, destination, input_alignment, input_binary, dependenc
 
 
 def build_examl_nodes(options, settings, intervals, taxa, filtering, dependencies):
-    filtering_postfix = ".filtered" if any(filtering.itervalues()) else ""
+    filtering_postfix = ".filtered" if any(filtering.values()) else ""
     destination = os.path.join(options.destination, "phylogenies", "examl.supermatrix" + filtering_postfix)
     phylo = settings["Phylogenetic Inference"]
     afa_ext = ".afa" if settings["MSAlignment"]["Enabled"] else ".fasta"

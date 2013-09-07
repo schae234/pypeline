@@ -186,7 +186,7 @@ class CleanupBAMNode(CommandNode):
         params.set_option("QUIET", "true", sep = "=")
         params.set_option("COMPRESSION_LEVEL", "0", sep = "=")
 
-        for (tag, value) in sorted(tags.iteritems()):
+        for (tag, value) in sorted(tags.items()):
             if tag not in ("PG", "Target", "PU_src", "PU_cur"):
                 params.set_option(tag, value, sep = "=")
             elif tag == "PU_src":

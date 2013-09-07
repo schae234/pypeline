@@ -43,7 +43,7 @@ class Target:
     @property
     def node(self):
         extras = MetaNode(description  = "Additional tasks:",
-                          dependencies = self._nodes_extras.values())
+                          dependencies = list(self._nodes_extras.values()))
 
         return MetaNode(description    = "Target: %s" % self.name,
                         dependencies   = (self._nodes_alignment, extras))

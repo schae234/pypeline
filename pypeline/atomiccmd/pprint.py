@@ -22,7 +22,7 @@
 #
 # pylint: disable=W0212
 
-from __future__ import print_function
+
 
 import os
 import sys
@@ -74,7 +74,7 @@ def _build_status(atomiccmd, _stats, indent, lines):
     if atomiccmd._proc:
         if atomiccmd.ready():
             return_code = tuple(atomiccmd.join())
-            if isinstance(return_code[0], types.StringTypes):
+            if isinstance(return_code[0], str):
                 lines.append(prefix + "Terminated with signal %s" % return_code)
             else:
                 lines.append(prefix + "Exited with return-code %i" % return_code)
@@ -88,7 +88,7 @@ def _build_stdin(atomiccmd, files, stats, indent, lines):
     prefix = "%s%s  = " % (" " * indent, pipe_name)
     if pipe and pipe in stats["id"]:
         lines.append("%s<%02i>" % (prefix, stats["id"][pipe],))
-    elif isinstance(pipe, types.StringTypes):
+    elif isinstance(pipe, str):
         if atomiccmd._set_cwd and (pipe_name == "STDIN*"):
             pipe = os.path.basename(pipe)
         lines.append("%s'%s'" % (prefix, pipe))

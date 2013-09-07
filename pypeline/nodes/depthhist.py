@@ -85,7 +85,7 @@ class DepthHistogramNode(Node):
         self._handle = {}
 
         if len(self._input_files) == 1:
-            filename = iter(self._input_files).next()
+            filename = next(iter(self._input_files))
             os.symlink(os.path.abspath(filename), pipe)
         else:
             os.mkfifo(pipe)
@@ -99,7 +99,7 @@ class DepthHistogramNode(Node):
         region_names = self._create_tables(config, temp)
 
         table = {}
-        for (key, (filename, handle)) in self._tables.iteritems():
+        for (key, (filename, handle)) in self._tables.items():
             handle.close()
             self._read_table(key, table, filename)
 
@@ -111,10 +111,10 @@ class DepthHistogramNode(Node):
         temp_filename = reroot_path(temp, self._output_file)
         move_file(temp_filename, self._output_file)
 
-        for filename in self._pipes.itervalues():
+        for filename in self._pipes.values():
             os.remove(filename)
 
-        for (filename, _) in self._tables.itervalues():
+        for (filename, _) in self._tables.values():
             os.remove(filename)
 
         intervals = os.path.join(temp, "intervals.bed")
@@ -151,10 +151,10 @@ class DepthHistogramNode(Node):
         if not self._print_stats:
             out.close()
 
-        for handle in self._handle.itervalues():
+        for handle in self._handle.values():
             handle.close()
 
-        for proclst in self._procs.itervalues():
+        for proclst in self._procs.values():
             for proc in proclst:
                 if proc.wait() != 0:
                     raise RuntimeError("Error while running process: %i" % proc.wait())
@@ -195,10 +195,10 @@ class DepthHistogramNode(Node):
 
         zeros = [0] * (_MAX_DEPTH + 1)
         first = lambda pair: (pair[0] or "")
-        rows = [["Name", "Sample", "Library", "Contig", "Size", "MaxDepth"] + ["MD_%03i" % i for i in xrange(1, _MAX_DEPTH + 1)]]
-        for sample, libraries in sorted(table.iteritems(), key = first):
-            for library, regions in sorted(libraries.iteritems(), key = first):
-                for (region, size) in sorted(region_names.items(), key = first):
+        rows = [["Name", "Sample", "Library", "Contig", "Size", "MaxDepth"] + ["MD_%03i" % i for i in range(1, _MAX_DEPTH + 1)]]
+        for sample, libraries in sorted(iter(table.items()), key = first):
+            for library, regions in sorted(iter(libraries.items()), key = first):
+                for (region, size) in sorted(list(region_names.items()), key = first):
                     key = (self._target_name, sample, library, region)
                     row = [("*" if value is None else value) for value in key]
 
@@ -253,7 +253,7 @@ class DepthHistogramNode(Node):
     def _open_handles(self, temp, samfile, intervals):
         mapping    = {}
         readgroups = self._get_readgroups(samfile)
-        for (rg_id, rg) in readgroups.iteritems():
+        for (rg_id, rg) in readgroups.items():
             mapping[rg_id] = set([self._create_handle(temp, samfile, intervals, None,     None),
                                   self._create_handle(temp, samfile, intervals, rg["SM"], None),
                                   self._create_handle(temp, samfile, intervals, rg["SM"], rg["LB"])])
@@ -308,7 +308,7 @@ class DepthHistogramNode(Node):
                 if len(region_names) > self._max_contigs:
                     self._max_contigs_reached = True
                     region_names = {}
-            region_names[None] = sum(region_names.itervalues())
+            region_names[None] = sum(region_names.values())
 
             return intervals, region_names
 

@@ -43,7 +43,7 @@ class Prefix:
 
         files_and_nodes = {}
         for sample in self.samples:
-            files_and_nodes.update(sample.bams.iteritems())
+            files_and_nodes.update(iter(sample.bams.items()))
 
         if "Raw BAM" in features:
             self.bams.update(self._build_raw_bam(config, prefix, files_and_nodes))
@@ -59,7 +59,7 @@ class Prefix:
                                  dependencies = sample_nodes)
         else:
             self.node = MetaNode(description  = "Final BAMs: %s" % prefix["Name"],
-                                 subnodes     = self.bams.values(),
+                                 subnodes     = list(self.bams.values()),
                                  dependencies = sample_nodes)
 
 
@@ -68,9 +68,9 @@ class Prefix:
         validated_filename = os.path.join(self.folder, self.target, prefix["Name"] + ".validated")
 
         node = MergeSamFilesNode(config       = config,
-                                 input_bams   = files_and_bams.keys(),
+                                 input_bams   = list(files_and_bams.keys()),
                                  output_bam   = output_filename,
-                                 dependencies = files_and_bams.values())
+                                 dependencies = list(files_and_bams.values()))
         validated_node = IndexAndValidateBAMNode(config, prefix, node, validated_filename)
 
         return {output_filename : validated_node}
@@ -83,10 +83,10 @@ class Prefix:
 
         node = IndelRealignerNode(config       = config,
                                   reference    = prefix["Reference"],
-                                  infiles      = bams.keys(),
+                                  infiles      = list(bams.keys()),
                                   outfile      = output_filename,
                                   intervals    = intervals_filename,
-                                  dependencies = bams.values())
+                                  dependencies = list(bams.values()))
         validated_node = IndexAndValidateBAMNode(config, prefix, node, validated_filename)
 
         return {output_filename : validated_node}

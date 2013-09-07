@@ -20,7 +20,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 #
-from __future__ import with_statement
+
 
 import sys
 import optparse
@@ -144,7 +144,7 @@ class Mappability:
 
 
 class AlleleFrequencies:
-    VALID, INVALID, NA = range(3)
+    VALID, INVALID, NA = list(range(3))
 
     def __init__(self, filename, min_freq):
         assert min_freq >= 0
@@ -224,7 +224,7 @@ class AlleleFrequencies:
                     indel_length.append(bases.pop())
                 indel_length = int("".join(indel_length))
 
-                for _ in xrange(abs(indel_length)):
+                for _ in range(abs(indel_length)):
                     bases.pop()
 
                 counts[indel_length] = counts.get(indel_length, 0) + 1
@@ -241,7 +241,7 @@ class AlleleFrequencies:
 def _read_chunk(vcfs, chunk):
     try:
         while len(chunk) < _CHUNK_SIZE:
-            chunk.append(vcfs.next())
+            chunk.append(next(vcfs))
     except StopIteration:
         chunk.append(None)
 
@@ -295,7 +295,7 @@ def _group_indels_near_position(indels, distance):
         start = vcf.pos + 1 - distance
         end   = vcf.pos + 1 + distance + length
 
-        for position in xrange(start, end + 1):
+        for position in range(start, end + 1):
             positions[position].append(vcf)
 
     return positions
@@ -380,7 +380,7 @@ def _filter_by_properties(options, vcfs, mappability, frequencies):
             if not mappability.is_mappable(vcf.contig, vcf.pos):
                 _mark_as_filtered(vcf, "m")
 
-            ref_fw, ref_rev, alt_fw, alt_rev = map(int, properties["DP4"].split(","))
+            ref_fw, ref_rev, alt_fw, alt_rev = list(map(int, properties["DP4"].split(",")))
             if (alt_fw + alt_rev) < options.min_num_alt_bases:
                 _mark_as_filtered(vcf, "a=%i" % options.min_num_alt_bases)
 

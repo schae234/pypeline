@@ -22,14 +22,14 @@
 #
 import types
 import pickle
-import cPickle
+import pickle
 import itertools
 import binascii
 
 
 def _safe_coerce(cls):
     def _do_safe_coerce(value):
-        if isinstance(value, (types.StringTypes, types.DictType)):
+        if isinstance(value, (str, dict)):
             return cls((value,))
 
         try:
@@ -123,14 +123,14 @@ def split_before(iterable, pred):
 
 def is_strictly_increasing(lst):
     """Returns true if the contents of the list is strictly increasing."""
-    return all(x < y for (x, y) in itertools.izip(lst, itertools.islice(lst, 1, None)))
+    return all(x < y for (x, y) in zip(lst, itertools.islice(lst, 1, None)))
 
 
 # Copied from the Python 'itertools' module documentation
 def grouper(size, iterable, fillvalue=None):
     "grouper(3, 'ABCDEFG', 'x') --> ABC DEF Gxx"
     args = [iter(iterable)] * size
-    return itertools.izip_longest(fillvalue = fillvalue, *args)
+    return itertools.zip_longest(fillvalue = fillvalue, *args)
 
 
 def group_by_pred(pred, iterable):
@@ -167,7 +167,7 @@ def fast_pickle_test(obj):
     generate the exception, since the python module produces
     more informative error messages."""
     try:
-        cPickle.dumps(obj)
-    except (TypeError, cPickle.PicklingError):
+        pickle.dumps(obj)
+    except (TypeError, pickle.PicklingError):
         pickle.dumps(obj)
         assert False # pragma: no coverage

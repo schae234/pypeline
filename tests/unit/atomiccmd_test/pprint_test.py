@@ -21,7 +21,7 @@
 # SOFTWARE.
 #
 import os
-import StringIO
+import io
 
 import nose
 from nose.tools import assert_equal
@@ -39,7 +39,7 @@ from pypeline.atomiccmd.pprint import pprint, pformat, _pformat_list
 ## pprint
 
 def test_pprint__simple():
-    obj = StringIO.StringIO()
+    obj = io.StringIO()
     cmd = AtomicCmd(("touch", "something"))
     pprint(cmd, out = obj)
     assert_equal(obj.getvalue(), ("<Command = ['touch', 'something']\n"
