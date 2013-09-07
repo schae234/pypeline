@@ -68,7 +68,7 @@ class Run(object):
     mapped = False
     bam    = None
 
-    def __init__(self,accession = "TBD", infiles = ()):
+    def __init__(self, infile,  accession = "Unknown Accession"):
         self.accession = accession
         self.infile = infile
 
@@ -107,7 +107,6 @@ class Run(object):
         return -1
 
     # Node Methods
-
     def build_mapping_pipeline(self):
         nodes = []
         return nodes
