@@ -70,14 +70,8 @@ import collections
 from pypeline.atomiccmd.command import AtomicCmd
 from pypeline.common.utilities import safe_coerce_to_tuple
 
-
-
-
 class AtomicCmdBuilderError(RuntimeError):
     pass
-
-
-
 
 class AtomicCmdBuilder:
     """AtomicCmdBuilder is a class used to allow step-wise construction of an
@@ -347,6 +341,6 @@ def apply_options(builder, options, pred = lambda s: s.startswith("-")):
             else:
                 builder.set_option(key, values)
 
-_ADDABLE_TYPES = (float, int, int) + str
+_ADDABLE_TYPES = (float, int, int, str)
 _SETABLE_ONLY_TYPES = (bool, type(None))
 _SETABLE_TYPES = _ADDABLE_TYPES + _SETABLE_ONLY_TYPES

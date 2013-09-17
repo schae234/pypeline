@@ -31,9 +31,6 @@ import pypeline.common.fileutils as fileutils
 from pypeline.common.utilities import safe_coerce_to_frozenset, \
      fast_pickle_test
 
-
-
-
 class NodeError(RuntimeError):
     pass
 
@@ -128,7 +125,7 @@ class Node(object):
 
         try:
             temp = None
-            temp = fileutils.create_temp_dir(config.temp_root)
+            temp = fileutils.create_temp_dir("/tmp")
 
             self._setup(config, temp)
             self._run(config, temp)
@@ -153,6 +150,8 @@ class Node(object):
             raise NodeError("Executable(s) does not exist for node: %s" % (self,))
         self._check_for_missing_files(self.input_files, "input")
         self._check_for_missing_files(self.auxiliary_files, "auxiliary")
+        # Change to tmp dir, some commands write to pwd on default
+        os.chdir(_temp)
 
 
     def _run(self, _config, _temp):

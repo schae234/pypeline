@@ -47,7 +47,7 @@ class Pypeline:
                 self._nodes.append(node)
 
 
-    def run(self, max_running = 1, dry_run = False, collapse = True, verbose = True):
+    def run(self, max_running = 1, dry_run = False, collapse = False, verbose = True):
         try:
             nodegraph = NodeGraph(self._nodes)
         except NodeGraphError as error:
@@ -116,7 +116,8 @@ class Pypeline:
                 state = nodegraph.get_node_state(node)
                 if (state == nodegraph.RUNABLE):
                     started_nodes.append(node)
-                    running[node] = pool.apply_async(_call_run, args = (node, self._config))
+                    # Debug but changing apply_async to apply
+                    running[node] = pool.apply(_call_run, args = (node, self._config))
                     nodegraph.set_node_state(node, nodegraph.RUNNING)
                     idle_processes -= node.threads
                 elif (state in (nodegraph.DONE, nodegraph.ERROR)):
