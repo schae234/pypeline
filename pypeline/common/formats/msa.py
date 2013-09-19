@@ -46,8 +46,8 @@ def split_msa(msa, split_by = "123"):
     for key in split_by:
         results[key] = dict((name, {}) for name in msa)
 
-    for (name, sequence) in msa.iteritems():
-        for (key, partition) in split(sequence, split_by).iteritems():
+    for (name, sequence) in msa.items():
+        for (key, partition) in split(sequence, split_by).items():
             results[key][name] = partition
 
     return results
@@ -60,10 +60,10 @@ def join_msa(*msas):
     validate_msa(*msas)
     results = defaultdict(list)
     for msa in msas:
-        for (name, sequence) in msa.iteritems():
+        for (name, sequence) in msa.items():
             results[name].append(sequence)
 
-    return dict((key, "".join(value)) for (key, value) in results.iteritems())
+    return dict((key, "".join(value)) for (key, value) in results.items())
 
 
 def parse_msa(lines, read_meta = False):
@@ -122,9 +122,9 @@ def validate_msa(*msas):
     for msa in msas:
         if not msa:
             raise MSAError("MSA with no sequences found")
-        elif not all((name and isinstance(name, types.StringTypes)) for name in msa):
+        elif not all((name and isinstance(name, str)) for name in msa):
             raise MSAError("Names in MSA must be non-empty strings")
-        elif len(set(len(seq) for seq in msa.itervalues())) != 1:
+        elif len(set(len(seq) for seq in msa.values())) != 1:
             raise MSAError("MSA contains sequences of differing lengths")
 
         seqs_all.update(msa)

@@ -38,13 +38,13 @@ class FastaToPartitionedInterleavedPhyNode(Node):
             raise ValueError("Default 'partition_by' must be 3 entires long!")
         elif not isinstance(infiles, dict):
             raise TypeError("'infiles' must be a dictionary")
-        elif any(len(dd.get("partition_by", "123")) != 3 for dd in infiles.itervalues()):
+        elif any(len(dd.get("partition_by", "123")) != 3 for dd in infiles.values()):
             raise ValueError("'partition_by' must be 3 entires long!")
-        elif not all(isinstance(dd, dict) for dd in infiles.values()):
+        elif not all(isinstance(dd, dict) for dd in list(infiles.values())):
             raise TypeError("'infiles' must be a dictionary of dictionaries")
-        elif not any(("name" in dd) for dd in infiles.values()):
+        elif not any(("name" in dd) for dd in list(infiles.values())):
             raise ValueError("'name' must be specified for all input files")
-        elif any((set(dd) - _VALID_KEYS) for dd in infiles.values()):
+        elif any((set(dd) - _VALID_KEYS) for dd in list(infiles.values())):
             raise ValueError("Invalid keys found: %s" % ", ".join(set(dd) - _VALID_KEYS))
 
         self._infiles    = infiles
@@ -79,7 +79,7 @@ class FastaToPartitionedInterleavedPhyNode(Node):
         with open(reroot_path(temp, self._out_prefix + ".partitions"), "w") as output:
             end = 0
             for (name, msa) in msas:
-                length = len(msa.itervalues().next())
+                length = len(next(iter(msa.values())))
                 output.write("DNA, %s = %i-%i\n" % (name, end + 1, end + length))
                 end += length
 
@@ -98,13 +98,13 @@ class FastaToPartitionsNode(Node):
             raise ValueError("Default 'partition_by' must be 3 entires long!")
         elif not isinstance(infiles, dict):
             raise TypeError("'infiles' must be a dictionary")
-        elif any(len(dd.get("partition_by", "123")) != 3 for dd in infiles.itervalues()):
+        elif any(len(dd.get("partition_by", "123")) != 3 for dd in infiles.values()):
             raise ValueError("'partition_by' must be 3 entires long!")
-        elif not all(isinstance(dd, dict) for dd in infiles.values()):
+        elif not all(isinstance(dd, dict) for dd in list(infiles.values())):
             raise TypeError("'infiles' must be a dictionary of dictionaries")
-        elif not any(("name" in dd) for dd in infiles.values()):
+        elif not any(("name" in dd) for dd in list(infiles.values())):
             raise ValueError("'name' must be specified for all input files")
-        elif any((set(dd) - _VALID_KEYS) for dd in infiles.values()):
+        elif any((set(dd) - _VALID_KEYS) for dd in list(infiles.values())):
             raise ValueError("Invalid keys found: %s" % ", ".join(set(dd) - _VALID_KEYS))
 
         self._infiles   = infiles
@@ -125,7 +125,7 @@ class FastaToPartitionsNode(Node):
         end = 0
         partitions = collections.defaultdict(list)
         for (filename, msa) in _read_sequences(self._infiles):
-            length = len(msa.itervalues().next())
+            length = len(next(iter(msa.values())))
             start, end = end + 1, end + length
 
             for (group, offsets) in self._get_partition_by(filename):
@@ -150,7 +150,7 @@ class FastaToPartitionsNode(Node):
         groups = self._infiles[filename].get("partition_by", self._part_by)
 
         partition_by = {}
-        for (group, offset) in zip(groups, range(3)):
+        for (group, offset) in zip(groups, list(range(3))):
             partition_by.setdefault(group, []).append(offset)
 
         return list(sorted(partition_by.items()))

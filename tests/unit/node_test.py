@@ -102,7 +102,7 @@ def _build_cmd_mock(input_files  = (), output_files = (), executables  = (), aux
                     executables     = frozenset(executables),
                     auxiliary_files = frozenset(auxiliary_files),
                     requirements    = frozenset(requirements),
-                    expected_temp_files = frozenset(map(os.path.basename, output_files)),
+                    expected_temp_files = frozenset(list(map(os.path.basename, output_files))),
                     optional_temp_files = frozenset(optional_temp_files))
 
 
@@ -259,7 +259,7 @@ def test_constructor__threads():
         node = cls(threads = nthreads)
         assert_equal(node.threads, nthreads)
     for cls in (Node, _CommandNodeWrap):
-        yield _do_test_constructor__threads, cls, 1L
+        yield _do_test_constructor__threads, cls, 1
         yield _do_test_constructor__threads, cls, 3
 
 def test_constructor__threads_invalid_range():

@@ -40,7 +40,7 @@ class NodeGraphError(RuntimeError):
 
 
 class NodeGraph:
-    DONE, RUNNING, RUNABLE, QUEUED, OUTDATED, ERROR = range(6)
+    DONE, RUNNING, RUNABLE, QUEUED, OUTDATED, ERROR = list(range(6))
 
     def __init__(self, nodes):
         nodes = safe_coerce_to_frozenset(nodes)
@@ -48,7 +48,7 @@ class NodeGraph:
         self._reverse_dependencies = collections.defaultdict(set)
         self._collect_reverse_dependencies(nodes, self._reverse_dependencies)
         self._intersections = self._calculate_intersections()
-        self._top_nodes = [node for (node, rev_deps) in self._reverse_dependencies.iteritems() if not rev_deps]
+        self._top_nodes = [node for (node, rev_deps) in self._reverse_dependencies.items() if not rev_deps]
 
         ui.print_info("  - Checking file dependencies ...", file = sys.stderr)
         self._check_file_dependencies(self._reverse_dependencies)
@@ -78,8 +78,8 @@ class NodeGraph:
         for dependency in self._reverse_dependencies[node]:
             requires_update[dependency] = True
 
-        while any(requires_update.itervalues()):
-            for (node, count) in intersections.items():
+        while any(requires_update.values()):
+            for (node, count) in list(intersections.items()):
                 if not count:
                     has_changed = False
                     if requires_update[node]:
@@ -106,7 +106,7 @@ class NodeGraph:
 
     def refresh_states(self):
         states = {}
-        for (node, state) in self._states.iteritems():
+        for (node, state) in self._states.items():
             if state in (self.ERROR, self.RUNNING):
                 states[node] = state
         self._states = states
@@ -155,7 +155,7 @@ class NodeGraph:
                     state = NodeGraph.OUTDATED
                 else:
                     state = NodeGraph.QUEUED
-        except OSError, error:
+        except OSError as error:
             # Typically hapens if base input files are removed, causing a node that
             # 'is_done' to call modified_after on missing files in 'is_outdated'
             ui.print_err("OSError checking state of Node: %s" % error, file = sys.stderr)
@@ -180,10 +180,10 @@ class NodeGraph:
         try:
             for requirement in exec_requirements:
                 requirement()
-        except versions.VersionRequirementError, error:
+        except versions.VersionRequirementError as error:
             raise NodeGraphError("Version requirements check failed for %s:\n\t%s" \
                                  % (requirement.name, error))
-        except OSError, error:
+        except OSError as error:
             raise NodeGraphError("Could not check version requirements for %s:\n\t%s" \
                                  % (requirement.name, error))
 
@@ -195,15 +195,15 @@ class NodeGraph:
         files["auxiliary_files"] = files["input_files"]
 
         for node in nodes:
-            for (attr, nodes_by_file) in files.iteritems():
+            for (attr, nodes_by_file) in files.items():
                 for filename in getattr(node, attr):
                     nodes_by_file[filename].add(node)
 
-        max_messages = range(_MAX_ERROR_MESSAGES)
+        max_messages = list(range(_MAX_ERROR_MESSAGES))
         error_messages = []
-        error_messages.extend(zip(max_messages, cls._check_output_files(files["output_files"])))
-        error_messages.extend(zip(max_messages, cls._check_input_dependencies(files["input_files"],
-                                                                              files["output_files"], nodes)))
+        error_messages.extend(list(zip(max_messages, cls._check_output_files(files["output_files"]))))
+        error_messages.extend(list(zip(max_messages, cls._check_input_dependencies(files["input_files"],
+                                                                              files["output_files"], nodes))))
 
         if error_messages:
             messages = []
@@ -217,7 +217,7 @@ class NodeGraph:
 
     @classmethod
     def _check_output_files(cls, output_files):
-        for (filename, nodes) in output_files.iteritems():
+        for (filename, nodes) in output_files.items():
             if (len(nodes) > 1):
                 nodes = _summarize_nodes(nodes)
                 yield "Multiple nodes create the same (clobber) output-file:" \
@@ -229,7 +229,7 @@ class NodeGraph:
     def _check_input_dependencies(cls, input_files, output_files, nodes):
         dependencies = cls._collect_dependencies(nodes, {})
 
-        for (filename, nodes) in sorted(input_files.items(), key = lambda v: v[0]):
+        for (filename, nodes) in sorted(list(input_files.items()), key = lambda v: v[0]):
             if (filename in output_files):
                 producers = output_files[filename]
                 bad_nodes = set()
@@ -238,7 +238,7 @@ class NodeGraph:
                         bad_nodes.add(consumer)
 
                 if bad_nodes:
-                    producer  = iter(producers).next()
+                    producer  = next(iter(producers))
                     bad_nodes = _summarize_nodes(bad_nodes)
                     yield "Node depends on dynamically created file, but not on the node creating it:" + \
                                 "\n\tFilename: %s\n\tCreated by: %s\n\tDependent node(s): %s" \

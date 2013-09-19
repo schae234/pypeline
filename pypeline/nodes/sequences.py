@@ -20,7 +20,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
 # SOFTWARE.
 #
-from __future__ import with_statement
+
 
 import os
 import copy
@@ -50,21 +50,21 @@ class CollectSequencesNode(Node):
         Node.__init__(self,
                       description  = "<CollectSequences: %i sequences from %i files -> '%s'>" \
                             % (len(self._sequences), len(self._infiles), self._destination),
-                      input_files  = self._infiles.values(),
+                      input_files  = list(self._infiles.values()),
                       output_files = self._outfiles,
                       dependencies = dependencies)
 
 
     def _run(self, _config, temp):
         fastas = {}
-        for (name, filename) in self._infiles.iteritems():
+        for (name, filename) in self._infiles.items():
             current_fastas = {}
             for ((name, _meta), sequence) in read_fasta(filename):
                 current_fastas[name] = sequence
             fastas[name] = current_fastas
         fastas = list(sorted(fastas.items()))
 
-        for (sequence_name, taxa_map) in sorted(self._sequences.iteritems()):
+        for (sequence_name, taxa_map) in sorted(self._sequences.items()):
             lines = []
             for (taxon_name, sequences) in fastas:
                 fastaseq = "\n".join(fragment(60, sequences[sequence_name]))
@@ -91,7 +91,7 @@ class FilterSingletonsNode(Node):
         self._input_file      = input_file
         self._output_file     = output_file
         self._filter_by       = dict(filter_by)
-        for (to_filter, groups) in self._filter_by.items():
+        for (to_filter, groups) in list(self._filter_by.items()):
             groups = set(groups) | set([to_filter])
             if len(groups) == 1:
                 raise RuntimeError("Singleton filtering must involve at least one other group")
@@ -107,10 +107,10 @@ class FilterSingletonsNode(Node):
     def _run(self, _config, temp):
         alignment = msa.read_msa(self._input_file)
 
-        for (to_filter, groups) in self._filter_by.iteritems():
+        for (to_filter, groups) in self._filter_by.items():
             sequences = [alignment[group] for group in groups]
             sequence = list(alignment[to_filter])
-            for (index, nts) in enumerate(zip(*sequences)):
+            for (index, nts) in enumerate(list(zip(*sequences))):
                 nt = sequence[index]
                 if (nt not in "Nn-") and (nts.count(nt) == 1):
                     sequence[index] = 'n'
@@ -128,7 +128,7 @@ class FilterSingletonsMetaNode(MetaNode):
     def __init__(self, input_files, destination, filter_by, dependencies = ()):
         subnodes = []
         filter_by = dict(filter_by)
-        for (filename, node) in input_files.iteritems():
+        for (filename, node) in input_files.items():
             output_filename = fileutils.reroot_path(destination, filename)
             subnodes.append(FilterSingletonsNode(input_file   = filename,
                                                  output_file  = output_filename,

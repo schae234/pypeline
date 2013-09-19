@@ -184,14 +184,14 @@ def _print_header(timestamp, full_mkfile = True, sample_tmpl = True, minimal = F
             # Avoid too many empty lines
             if line.strip() or minimal_template[-1].strip():
                 minimal_template.append(line)
-    print("\n".join(minimal_template))
+    print(("\n".join(minimal_template)))
 
 
 def read_alignment_records(filename):
     with open(filename) as records:
         header = records.readline().strip().split(",")
         for line in records:
-            yield dict(zip(header, line.strip().split(",")))
+            yield dict(list(zip(header, line.strip().split(","))))
 
 def parse_args(argv):
     parser = OptionParser("Usage: %prog [/path/to/SampleSheet.csv]")
@@ -236,15 +236,15 @@ def main(argv):
                   full_mkfile = (os.path.basename(sys.argv[0]) != "trim_pipeline"),
                   sample_tmpl = not bool(records),
                   minimal     = options.minimal)
-    for (sample, libraries) in records.iteritems():
-        print "%s:" % sample
-        print "  %s:" % sample
-        for (library, barcodes) in libraries.iteritems():
-            print "    %s:" % library
+    for (sample, libraries) in records.items():
+        print("%s:" % sample)
+        print("  %s:" % sample)
+        for (library, barcodes) in libraries.items():
+            print("    %s:" % library)
             for record in barcodes:
-                print "      {FCID}_{Lane}: {Path}".format(**record)
-            print
-        print
+                print("      {FCID}_{Lane}: {Path}".format(**record))
+            print()
+        print()
 
     if not argv:
         ui.print_info("No directories specified, empty table printed:", file = sys.stderr)

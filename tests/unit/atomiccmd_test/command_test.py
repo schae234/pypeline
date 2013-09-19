@@ -224,7 +224,7 @@ def test_atomiccmd__paths__invalid_values():
     yield _do_test_atomiccmd__paths__invalid_values, {"TEMP_IN_STDIN"   : frozenset()}
     yield _do_test_atomiccmd__paths__invalid_values, {"OUT_STDOUT"      : 1.7}
     yield _do_test_atomiccmd__paths__invalid_values, {"TEMP_OUT_STDOUT" : ()}
-    yield _do_test_atomiccmd__paths__invalid_values, {"OUT_STDERR"      : xrange(3)}
+    yield _do_test_atomiccmd__paths__invalid_values, {"OUT_STDERR"      : range(3)}
     yield _do_test_atomiccmd__paths__invalid_values, {"TEMP_OUT_STDERR" : -1}
 
 
@@ -670,7 +670,7 @@ def test_atomiccmd__cleanup_proc():
         assert_equal(pypeline.atomiccmd.command._PROCS, set())
         cmd = AtomicCmd("ls")
         cmd.run(temp_folder)
-        ref = iter(pypeline.atomiccmd.command._PROCS).next()
+        ref = next(iter(pypeline.atomiccmd.command._PROCS))
         assert ref
         assert_equal(ref(), cmd._proc)
 

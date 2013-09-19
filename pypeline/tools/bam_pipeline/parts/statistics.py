@@ -27,7 +27,7 @@ from pypeline.node import MetaNode
 from pypeline.common.fileutils import swap_ext
 from pypeline.nodes.coverage import CoverageNode, MergeCoverageNode
 from pypeline.nodes.depthhist import DepthHistogramNode
-from summary import SummaryTableNode
+from .summary import SummaryTableNode
 
 
 def add_statistics_nodes(config, makefile, target):
@@ -68,10 +68,10 @@ def _build_depth(config, makefile, target):
 
             node = DepthHistogramNode(config         = config,
                                       target_name    = target.name,
-                                      input_files    = input_files.keys(),
+                                      input_files    = list(input_files.keys()),
                                       intervals_file = aoi_filename,
                                       output_file    = output_filename,
-                                      dependencies   = input_files.values())
+                                      dependencies   = list(input_files.values()))
             nodes.append(node)
 
     return MetaNode(description = "DepthHistograms",
@@ -82,7 +82,7 @@ def _build_depth(config, makefile, target):
 def _aggregate_for_prefix(cov, prefix, aoi_name = None, into = None):
     prefix = _get_prefix_label(prefix, aoi_name)
     results = {} if into is None else {}
-    for (key, files_and_nodes) in cov.iteritems():
+    for (key, files_and_nodes) in cov.items():
         if prefix is None or (key[0] == prefix):
             results.update(files_and_nodes)
     return results
@@ -98,9 +98,9 @@ def _build_coverage(config, makefile, target, make_summary):
 
             files_and_nodes = _aggregate_for_prefix(coverage["Libraries"], label)
             output_filename = os.path.join(config.destination, "%s.%s.coverage" % (target.name, postfix))
-            merged = MergeCoverageNode(input_files  = files_and_nodes.keys(),
+            merged = MergeCoverageNode(input_files  = list(files_and_nodes.keys()),
                                        output_file  = output_filename,
-                                       dependencies = files_and_nodes.values())
+                                       dependencies = list(files_and_nodes.values()))
 
             merged_nodes.append(merged)
 
@@ -111,7 +111,7 @@ def _build_coverage(config, makefile, target, make_summary):
         files_and_nodes = _aggregate_for_prefix(coverage["Lanes"], None, into = files_and_nodes)
 
     partial_nodes = MetaNode(description = description,
-                             subnodes    = files_and_nodes.values())
+                             subnodes    = list(files_and_nodes.values()))
     final_nodes   = MetaNode(description = "Final coverage",
                              subnodes    = merged_nodes)
 
@@ -135,7 +135,7 @@ def _build_coverage_nodes(target):
                     key = (prefix_label, target.name, sample.name, library.name)
 
                     for lane in library.lanes:
-                        for bams in lane.bams.values():
+                        for bams in list(lane.bams.values()):
                             bams = _build_coverage_nodes_cached(bams, target.name, aoi_name, aoi_filename, cache)
                             coverage["Lanes"][key].update(bams)
 
@@ -150,7 +150,7 @@ def _build_coverage_nodes_cached(files_and_nodes, target_name, aoi_name, aoi_fil
         output_ext = ".%s.coverage" % aoi_name
 
     coverages = {}
-    for (input_filename, node) in files_and_nodes.iteritems():
+    for (input_filename, node) in files_and_nodes.items():
         output_filename = swap_ext(input_filename, output_ext)
 
         cache_key = (aoi_filename, input_filename)
@@ -167,7 +167,7 @@ def _build_coverage_nodes_cached(files_and_nodes, target_name, aoi_name, aoi_fil
 
 def _get_aoi(prefix, name_prefix = ""):
     aoi = [("", None)]
-    for (name, path) in prefix.aoi.iteritems():
+    for (name, path) in prefix.aoi.items():
         aoi.append((name_prefix + name, path))
     return aoi
 

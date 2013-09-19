@@ -120,7 +120,7 @@ def test_atomicsets__stdout():
 def test_atomicsets__terminate():
     def _do_test_atomicsets__terminate(cls):
         mocks = []
-        for _ in reversed(range(3)):
+        for _ in reversed(list(range(3))):
             cmd_mock = flexmock(AtomicCmd("true"))
             cmd_mock.should_receive('terminate').with_args().once
             mocks.append(cmd_mock)
@@ -190,7 +190,7 @@ def test_parallel_commands__ready_two():
 
 def test_parallel_commands__join_before_run():
     mocks = []
-    for value in reversed(range(3)):
+    for value in reversed(list(range(3))):
         cmd_mock = flexmock(AtomicCmd("true"))
         cmd_mock.should_receive('join').and_return([value]).never
         mocks.append(cmd_mock)

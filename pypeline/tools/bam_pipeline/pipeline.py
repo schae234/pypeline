@@ -27,7 +27,7 @@ import copy
 import string
 import optparse
 import collections
-import ConfigParser
+import configparser
 
 import pypeline
 import pypeline.ui as ui
@@ -58,9 +58,9 @@ def _add_mapdamage_nodes(config, makefile, target):
                 folder = os.path.join(config.destination, "%s.%s.mapDamage" % (target.name, prefix.name), library.name)
                 libraries.append(MapDamageNode(config           = config,
                                                reference        = prefix.reference,
-                                               input_files      = library.bams.keys(),
+                                               input_files      = list(library.bams.keys()),
                                                output_directory = folder,
-                                               dependencies     = library.bams.values()))
+                                               dependencies     = list(library.bams.values())))
 
         nodes.append(MetaNode(description = prefix.name,
                               subnodes    = libraries))
@@ -82,11 +82,11 @@ def build_pipeline_trimming(config, makefile):
     This reduces the required complexity of the makefile to a minimum."""
 
     nodes = []
-    for prefix in makefile["Prefixes"].itervalues():
-        for (target, samples) in makefile["Targets"].iteritems():
-            for (sample, libraries) in samples.iteritems():
-                for (library, barcodes) in libraries.iteritems():
-                    for (barcode, record) in barcodes.iteritems():
+    for prefix in makefile["Prefixes"].values():
+        for (target, samples) in makefile["Targets"].items():
+            for (sample, libraries) in samples.items():
+                for (library, barcodes) in libraries.items():
+                    for (barcode, record) in barcodes.items():
                         lane = parts.Lane(config, prefix, record, barcode)
                         if lane.reads and lane.reads.nodes:
                             nodes.extend(lane.reads.nodes)
@@ -98,19 +98,19 @@ def build_pipeline_full(config, makefile, return_nodes = True):
     targets = []
     features = makefile["Options"]["Features"]
 	# target_name : M992 (usually only one)
-    for (target_name, sample_records) in makefile["Targets"].iteritems():
+    for (target_name, sample_records) in makefile["Targets"].items():
         prefixes = []
 		# prefixes: nuclear and mito
-        for (prefix_name, prefix) in makefile["Prefixes"].iteritems():
+        for (prefix_name, prefix) in makefile["Prefixes"].items():
             samples = []
 			# Sample: M992
-            for (sample_name, library_records) in sample_records.iteritems():
+            for (sample_name, library_records) in sample_records.items():
                 libraries = []
 				# library_name: GATCAG
-                for (library_name, barcode_records) in library_records.iteritems():
+                for (library_name, barcode_records) in library_records.items():
                     lanes = []
 					# barcode: M922_8 (not really a barcode)
-                    for (barcode, record) in barcode_records.iteritems():
+                    for (barcode, record) in barcode_records.items():
 						# append a lane object for each barcode, library, sample, prefix, target
                         lanes.append(parts.Lane(config, prefix, record, barcode))
 
@@ -140,23 +140,23 @@ def _make_target_list(config, makefiles):
         target_list[(target.name,)] = [target.node]
 
         for prefix in target.prefixes:
-            target_list[(target.name, prefix.name)] = prefix.bams.values()
+            target_list[(target.name, prefix.name)] = list(prefix.bams.values())
 
             for sample in prefix.samples:
-                target_list[(target.name, prefix.name, sample.name)] = sample.bams.values()
+                target_list[(target.name, prefix.name, sample.name)] = list(sample.bams.values())
 
                 for library in sample.libraries:
-                    target_list[(target.name, prefix.name, sample.name, library.name)] = library.bams.values()
+                    target_list[(target.name, prefix.name, sample.name, library.name)] = list(library.bams.values())
 
                     for lane in library.lanes:
                         lane_bams = []
-                        for files_and_nodes in lane.bams.itervalues():
-                            lane_bams.extend(files_and_nodes.itervalues())
+                        for files_and_nodes in lane.bams.values():
+                            lane_bams.extend(iter(files_and_nodes.values()))
 
                         target_list[(target.name, prefix.name, sample.name, library.name, lane.name)] = lane_bams
 
-                        for (reads_type, bams) in lane.bams.iteritems():
-                            target_list[(target.name, prefix.name, sample.name, library.name, lane.name, reads_type)] = bams.values()
+                        for (reads_type, bams) in lane.bams.items():
+                            target_list[(target.name, prefix.name, sample.name, library.name, lane.name, reads_type)] = list(bams.values())
 
                         if lane.reads and lane.reads.nodes:
                             target_list[(target.name, "reads", sample.name, library.name, lane.name)] = lane.reads.nodes
@@ -172,7 +172,7 @@ def list_targets_for(config, makefiles, show):
 
     for target in sorted(target for target in target_list if len(target) == length):
         if (show == "trimming") == (target[1] == "reads"):
-            print ":".join(target)
+            print(":".join(target))
 
 
 def build_pipeline_targets(config, makefile):
@@ -189,7 +189,7 @@ def build_pipeline_targets(config, makefile):
 def index_references(config, makefiles):
     references = {}
     for makefile in makefiles:
-        for dd in makefile["Prefixes"].itervalues():
+        for dd in makefile["Prefixes"].values():
             reference = os.path.realpath(dd["Reference"])
             if reference not in references:
                 references[reference] = \
@@ -201,7 +201,7 @@ def index_references(config, makefiles):
 
 
 def parse_config(argv):
-    config = ConfigParser.SafeConfigParser()
+    config = configparser.SafeConfigParser()
     config_paths = (os.path.join(os.path.expanduser('~'), ".pypeline.conf"),
                     "/etc/pypeline.conf")
 
@@ -212,7 +212,7 @@ def parse_config(argv):
 
     try:
         defaults = dict(config.items("Defaults"))
-    except ConfigParser.NoSectionError:
+    except configparser.NoSectionError:
         defaults = {}
 
     parser = optparse.OptionParser()
@@ -278,7 +278,7 @@ def parse_config(argv):
     if not os.path.exists(config.temp_root):
         try:
             os.makedirs(config.temp_root)
-        except OSError, e:
+        except OSError as e:
             ui.print_err("ERROR: Could not create temp root:\n\t%s" % (e,), file = sys.stderr)
             return None
 
@@ -311,7 +311,7 @@ def walk_nodes(nodes, func, skip_nodes = None):
 def list_output_files(nodes):
     output_files = set()
     def collect_output_files(node):
-        output_files.update(map(os.path.abspath, node.output_files))
+        output_files.update(list(map(os.path.abspath, node.output_files)))
         return True
 
     walk_nodes(nodes, collect_output_files)
@@ -347,7 +347,7 @@ def main(argv):
         if not makefiles:
             ui.print_err("Plase specify at least one makefile!", file = sys.stderr)
             return 1
-    except MakefileError, e:
+    except MakefileError as e:
         ui.print_err("Error reading makefile:\n\t%s" % \
                          "\n\t".join(str(e).split("\n")),
                          file = sys.stderr)
@@ -385,7 +385,7 @@ def main(argv):
 
         try:
             nodes = pipeline_func(config, makefile)
-        except pypeline.node.NodeError, e:
+        except pypeline.node.NodeError as e:
             ui.print_err("Error while building pipeline for '%s':\n%s" % (filename, e), file = sys.stderr)
             return 1
 

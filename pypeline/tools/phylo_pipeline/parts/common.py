@@ -57,7 +57,7 @@ def get_genome_for_interval(interval, taxon):
     
 def collect_bed_files(options, interval, taxa):
     bedfiles = {}
-    for taxon in taxa.itervalues():
+    for taxon in taxa.values():
         name      = taxon["Name"]
         prefix    = get_prefix(interval, taxon)
         bedfile   = os.path.join(options.intervals_root, prefix + ".bed")
@@ -68,7 +68,7 @@ def collect_bed_files(options, interval, taxa):
 
 def collect_fasta_files(options, interval, taxa):
     fastafiles = {}
-    for taxon in taxa.itervalues():
+    for taxon in taxa.values():
         name      = taxon["Name"]
         prefix    = get_prefix(interval, taxon)
         fastafile = os.path.join(options.destination, "genotypes", "%s.%s.fasta" % (name, prefix))
@@ -79,15 +79,15 @@ def collect_fasta_files(options, interval, taxa):
 
 def collect_sequences(options, interval, taxa):
     bedfiles  = collect_bed_files(options, interval, taxa)
-    if len(set(bedfiles.itervalues())) > 1:
+    if len(set(bedfiles.values())) > 1:
         raise RuntimeError("Support for combining different intervals files not implemented!")
 
     # Same set of sequences for all genomes
     sequences = set()
-    with open(bedfiles.itervalues().next()) as bedhandle:
+    with open(next(iter(bedfiles.values()))) as bedhandle:
         for line in bedhandle:
             sequences.add(line.split()[3])
-    seqmap = dict(zip(sequences, sequences))
+    seqmap = dict(list(zip(sequences, sequences)))
 
     return dict((name, dict.fromkeys(taxa, name)) for name in seqmap)
 

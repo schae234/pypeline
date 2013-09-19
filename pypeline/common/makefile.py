@@ -41,7 +41,7 @@ def read_makefile(filename, defaults, validation):
         with open(filename) as makefile:
             string = makefile.read()
             data = yaml.safe_load(string)
-    except Exception, error:
+    except Exception as error:
         raise MakefileError(error)
 
     final = copy.deepcopy(defaults)
@@ -127,7 +127,7 @@ def OneOf(*args, **kwargs):
             % (":".join(path), ", ".join(map(repr, args)), repr(value)))
         return _OneOf_CaseSensitive
 
-    args = map(_safe_coerce_to_lowercase, args)
+    args = list(map(_safe_coerce_to_lowercase, args))
     def _OneOf_CaseInsensitive(path, value):
         if _safe_coerce_to_lowercase(value) not in args:
             raise MakefileError("Value for '%s' must be one of %s (case insensitive), not %s!" \
@@ -143,7 +143,7 @@ def AnyOf(*args, **kwargs):
 
     key_func = _this
     if not kwargs.get("case_sensitive", True):
-        args = map(_safe_coerce_to_lowercase, args)
+        args = list(map(_safe_coerce_to_lowercase, args))
         key_func = _safe_coerce_to_lowercase
 
     min_items = int(kwargs.get("min_items", 0))
@@ -177,15 +177,15 @@ def IsListOf(*args):
 
 def IsDictOf(key_func, value_func):
     def _IsDictOf(path, dd):
-        if not isinstance(dd, types.DictType):
+        if not isinstance(dd, dict):
             raise MakefileError("Value for '%s' must be dict, not '%s'!" \
                             % (":".join(path), repr(dd)))
 
         try:
-            for (key, value) in dd.iteritems():
+            for (key, value) in dd.items():
                 key_func(path, key)
                 value_func(path, value)
-        except MakefileError, error:
+        except MakefileError as error:
             raise MakefileError("Error while reading items of dict: %s" % error)
     return _IsDictOf
 
@@ -222,7 +222,7 @@ def IsBoolean(path, value):
 
 
 def IsStr(path, value):
-    if not isinstance(value, types.StringTypes):
+    if not isinstance(value, str):
         raise MakefileError("Value for '%s' must be a string, not %s!" \
                             % (":".join(path), repr(value)))
 
@@ -235,7 +235,7 @@ def IsStrUppercase(path, value):
 
 
 def IsStrWithPrefix(prefix):
-    assert prefix and isinstance(prefix, types.StringTypes)
+    assert prefix and isinstance(prefix, str)
     def _IsStrWithPrefix(path, value):
         IsStr(path, value)
         if not value.startswith(prefix):
@@ -251,7 +251,7 @@ def IsNone(path, value):
 
 
 def _safe_coerce_to_lowercase(value):
-    if isinstance(value, types.StringTypes):
+    if isinstance(value, str):
         return value.lower()
     return value
 

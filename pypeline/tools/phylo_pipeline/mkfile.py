@@ -29,7 +29,7 @@ from pypeline.common.text import padded_table
 
 
 def main(argv):
-    print """# -*- mode: Yaml; -*-
+    print("""# -*- mode: Yaml; -*-
 Project:
   Title: Horses
 
@@ -110,7 +110,7 @@ PAML:
       - "results/Horses.codeml.ctl"
     Tree File:    "rusults/Horses.codeml.trees"
 
-"""
+""")
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv[1:]))

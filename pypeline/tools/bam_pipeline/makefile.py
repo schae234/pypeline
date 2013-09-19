@@ -211,13 +211,13 @@ def _update_options(makefile):
         else:
             data["Options"] = options
 
-    for (target, data) in makefile["Targets"].iteritems():
+    for (target, data) in makefile["Targets"].items():
         _do_update_options(makefile["Options"], data, ())
 
 
 def _update_prefixes(makefile):
     prefixes = {}
-    for (name, values) in makefile.get("Prefixes", {}).iteritems():
+    for (name, values) in makefile.get("Prefixes", {}).items():
         filename = values.get("Path")
         if not filename:
             raise MakefileError("Path not specified for prefix '%s'." % name)
@@ -258,16 +258,16 @@ def _update_prefixes(makefile):
 
 def _update_lanes(makefile):
     prefixes = makefile["Prefixes"]
-    for (target, samples) in makefile["Targets"].iteritems():
-        for (sample, libraries) in samples.iteritems():
-            for (library, lanes) in libraries.iteritems():
+    for (target, samples) in makefile["Targets"].items():
+        for (sample, libraries) in samples.items():
+            for (library, lanes) in libraries.items():
                 options = lanes.pop("Options")
 
-                for (lane, data) in lanes.iteritems():
+                for (lane, data) in lanes.items():
                     lane_type = None
-                    if isinstance(data, types.StringTypes):
+                    if isinstance(data, str):
                         lane_type = "Raw"
-                    elif isinstance(data, types.DictType):
+                    elif isinstance(data, dict):
                         if all((key in ("Single", "Paired", "Collapsed")) for key in data):
                             lane_type = "Trimmed"
                         elif all((key in prefixes) for key in data):
@@ -282,10 +282,10 @@ def _update_lanes(makefile):
 
 
 def _update_tags(makefile):
-    for (target, samples) in makefile["Targets"].iteritems():
-        for (sample, libraries) in samples.iteritems():
-            for (library, barcodes) in libraries.iteritems():
-                for (barcode, record) in barcodes.iteritems():
+    for (target, samples) in makefile["Targets"].items():
+        for (sample, libraries) in samples.items():
+            for (library, barcodes) in libraries.items():
+                for (barcode, record) in barcodes.items():
                     tags = {"Target"   : target,
                             "ID" : library,
                             "SM" : sample,
@@ -309,14 +309,14 @@ def _split_lanes_by_filenames(makefile):
             split = record["Options"]["SplitLanesByFilenames"]
 
             if (split == True) or (isinstance(split, list) and (barcode in split)):
-                if any(missing_files(file_set) for file_set in files.itervalues()):
+                if any(missing_files(file_set) for file_set in files.values()):
                     raise MakefileError("Unable to split by filename for search-string '%s', did not find files" % template)
-                elif any(len(v) > 1 for v in files.itervalues()):
+                elif any(len(v) > 1 for v in files.values()):
                     template = makefile["Targets"][target][sample][library].pop(barcode)
                     keys = ("SE",) if ("SE" in files) else ("PE_1", "PE_2")
 
                     input_files = [files[key] for key in keys]
-                    input_files_iter = itertools.izip_longest(*input_files)
+                    input_files_iter = itertools.zip_longest(*input_files)
                     for (index, filenames) in enumerate(input_files_iter, start = 1):
                         assert len(filenames) == len(keys)
                         assert len(filenames[0]) == len(filenames[-1])
@@ -343,7 +343,7 @@ def _validate_makefile_libraries(makefile):
     for (target, sample, library, barcode, record) in _iterate_over_records(makefile):
         libraries[(target, library)].add(sample)
 
-    for ((target, library), samples) in libraries.iteritems():
+    for ((target, library), samples) in libraries.items():
         if len(samples) > 1:
             raise MakefileError("Library '%s' in target '%s' spans multiple samples: %s" \
                                     % (library, target, ", ".join(samples)))
@@ -355,20 +355,20 @@ def _validate_makefiles_duplicate_files(makefiles):
         for (target, sample, library, barcode, record) in _iterate_over_records(makefile):
             current_filenames = []
             if record["Type"] == "Raw":
-                for raw_filenames in record["Data"].itervalues():
+                for raw_filenames in record["Data"].values():
                     current_filenames.extend(raw_filenames)
             else:
-                current_filenames.extend(record["Data"].values())
+                current_filenames.extend(list(record["Data"].values()))
 
             for realpath in map(os.path.realpath, current_filenames):
                     filenames[realpath].append((target, sample, library, barcode))
 
     has_overlap = {}
-    for (filename, records) in filenames.iteritems():
+    for (filename, records) in filenames.items():
         if len(records) > 1:
             has_overlap[filename] = list(set(records))
 
-    by_records = sorted(zip(has_overlap.values(), has_overlap.keys()))
+    by_records = sorted(zip(list(has_overlap.values()), list(has_overlap.keys())))
     for (records, pairs) in itertools.groupby(by_records, lambda x: x[0]):
         descriptions = []
         for (ii, record) in enumerate(records, start = 1):
@@ -389,9 +389,9 @@ def _validate_makefiles_duplicate_targets(makefiles):
 
 
 def _iterate_over_records(makefile):
-    for (target, samples) in makefile["Targets"].items():
-        for (sample, libraries) in samples.items():
-            for (library, barcodes) in libraries.items():
-                for (barcode, record) in barcodes.items():
+    for (target, samples) in list(makefile["Targets"].items()):
+        for (sample, libraries) in list(samples.items()):
+            for (library, barcodes) in list(libraries.items()):
+                for (barcode, record) in list(barcodes.items()):
                     yield target, sample, library, barcode, record
 

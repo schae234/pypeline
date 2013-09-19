@@ -112,7 +112,7 @@ class AtomicCmd:
         Each pipe can only be used once, with or without the TEMP_ prefix."""
         self._proc    = None
         self._temp    = None
-        self._command = map(str, safe_coerce_to_tuple(command))
+        self._command = list(map(str, safe_coerce_to_tuple(command)))
         self._handles = {}
         self._set_cwd = set_cwd
         if not self._command or not self._command[0]:
@@ -176,7 +176,7 @@ class AtomicCmd:
             return [return_code]
         finally:
             # Close any implictly opened pipes
-            for (mode, handle) in self._handles.values():
+            for (mode, handle) in list(self._handles.values()):
                 if "w" in mode:
                     handle.flush()
                 handle.close()
@@ -229,8 +229,8 @@ class AtomicCmd:
             raise CmdError("Expected files not created: %s" % (", ".join(missing_files)))
 
         temp = os.path.abspath(temp)
-        for (key, filename) in self._generate_filenames(self._files, temp).iteritems():
-            if isinstance(filename, types.StringTypes):
+        for (key, filename) in self._generate_filenames(self._files, temp).items():
+            if isinstance(filename, str):
                 if key.startswith("OUT_"):
                     fileutils.move_file(filename, self._files[key])
                 elif key.startswith("TEMP_OUT_"):
@@ -259,10 +259,10 @@ class AtomicCmd:
 
         try:
             return [(field % kwords) for field in self._command]
-        except (TypeError, ValueError), error:
+        except (TypeError, ValueError) as error:
             raise CmdError("Error building Atomic Command:\n  Call = %s\n  Error = %s: %s" \
                            % (self._command, error.__class__.__name__, error))
-        except KeyError, error:
+        except KeyError as error:
             raise CmdError("Error building Atomic Command:\n  Call = %s\n  Value not specified for path = %s" \
                            % (self._command, error))
 
@@ -272,7 +272,7 @@ class AtomicCmd:
         cls._validate_pipes(kwargs)
 
         files = {}
-        for (key, value) in kwargs.iteritems():
+        for (key, value) in kwargs.items():
             if cls._validate_argument(key, value):
                 files[key] = value
 
@@ -285,12 +285,12 @@ class AtomicCmd:
 
         # Check that output files are only specified once
         output_files = collections.defaultdict(list)
-        for (key, filename) in kwargs.iteritems():
+        for (key, filename) in kwargs.items():
             if key.startswith("TEMP_OUT_") or key.startswith("OUT_"):
-                if isinstance(filename, types.StringTypes):
+                if isinstance(filename, str):
                     output_files[os.path.basename(filename)].append(key)
 
-        for (filename, keys) in output_files.iteritems():
+        for (filename, keys) in output_files.items():
             if len(keys) > 1:
                 raise ValueError("Same output filename (%s) is specified for multiple keys: %s" \
                                    % (filename, ", ".join(keys)))
@@ -304,7 +304,7 @@ class AtomicCmd:
         both for a temporary and a final (outside the temp dir) file. For example,
         either IN_STDIN or TEMP_IN_STDIN must be specified, but not both."""
         if any((kwargs.get(pipe) and kwargs.get("TEMP_" + pipe)) for pipe in _PIPES):
-            raise CmdError, "Pipes must be specified at most once (w/wo TEMP_)."
+            raise CmdError("Pipes must be specified at most once (w/wo TEMP_).")
 
 
     @classmethod
@@ -321,19 +321,19 @@ class AtomicCmd:
             return False
 
         if key in ("OUT_STDOUT", "TEMP_OUT_STDOUT"):
-            if not (isinstance(value, types.StringTypes) or (value == cls.PIPE)):
+            if not (isinstance(value, str) or (value == cls.PIPE)):
                 raise TypeError("STDOUT must be a string or AtomicCmd.PIPE, not %r" % (value,))
         elif key in ("IN_STDIN", "TEMP_IN_STDIN"):
-            if not isinstance(value, types.StringTypes + (AtomicCmd,)):
+            if not isinstance(value, str + (AtomicCmd,)):
                 raise TypeError("STDIN must be string or AtomicCmd, not %r" % (value,))
         elif key.startswith("CHECK_"):
             if not isinstance(value, collections.Callable):
                 raise TypeError("CHECK must be callable, not %r" % (value,))
-        elif not isinstance(value, types.StringTypes):
+        elif not isinstance(value, str):
             raise TypeError("%s must be string, not %r" % (key, value))
 
         # Applies to TEMP_IN_* and TEMP_OUT_*
-        if key.startswith("TEMP_") and isinstance(value, types.StringTypes) and os.path.dirname(value):
+        if key.startswith("TEMP_") and isinstance(value, str) and os.path.dirname(value):
             raise ValueError("%s cannot contain directory component: %r" % (key, value))
 
         return True
@@ -355,8 +355,8 @@ class AtomicCmd:
     @classmethod
     def _generate_filenames(cls, files, root):
         filenames = {"TEMP_DIR" : root}
-        for (key, filename) in files.iteritems():
-            if isinstance(filename, types.StringTypes):
+        for (key, filename) in files.items():
+            if isinstance(filename, str):
                 if key.startswith("TEMP_") or key.startswith("OUT_"):
                     filename = os.path.join(root, os.path.basename(filename))
                 elif not root and (key.startswith("IN_") or key.startswith("AUX_")):
@@ -374,6 +374,7 @@ class AtomicCmd:
                      "EXEC"   : "executable",
                      "AUX"    : "auxiliary",
                      "CHECK"  : "requirements"}
+<<<<<<< HEAD
         # make a file set from VALUES 
         file_sets = dict((val, set()) for val in key_map.itervalues())
 
@@ -381,17 +382,30 @@ class AtomicCmd:
         for (key, filename) in files.iteritems():
             # We are either dealing with a filename or a requirement check
             if isinstance(filename, types.StringTypes) or key.startswith("CHECK_"):
+=======
+        file_sets = dict((key, set()) for key in key_map.values())
+
+        file_sets["executable"].add(command[0])
+        for (key, filename) in files.items():
+            if isinstance(filename, str) or key.startswith("CHECK_"):
+>>>>>>> 2to3
                 if key.startswith("TEMP_OUT_"):
                     file_sets["temporary_fname"].add(filename)
                 elif not key.startswith("TEMP_"):
                     # put file in the right set based on prefix
                     key = key_map[key.split("_", 1)[0]]
                     file_sets[key].add(filename)
+<<<<<<< HEAD
         # Strip leading path names (we deal with paths explicitly)
         file_sets["temporary_fname"] = map(os.path.basename, file_sets["temporary_fname"])
         file_sets["output_fname"]    = map(os.path.basename, file_sets["output"])
+=======
 
-        return dict(zip(file_sets.keys(), map(frozenset, file_sets.values())))
+        file_sets["temporary_fname"] = list(map(os.path.basename, file_sets["temporary_fname"]))
+        file_sets["output_fname"]    = list(map(os.path.basename, file_sets["output"]))
+>>>>>>> 2to3
+
+        return dict(list(zip(list(file_sets.keys()), list(map(frozenset, list(file_sets.values()))))))
 
 
 

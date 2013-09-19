@@ -78,7 +78,7 @@ def _collapse_taxa(mkfile):
     groups = {}
     def _collect_taxa(taxa_dict, path = ()):
         current_taxa = {}
-        for (key, subdd) in taxa_dict.iteritems():
+        for (key, subdd) in taxa_dict.items():
             if key.startswith("<") and key.endswith(">"):
                 key = key.lstrip("<").rstrip(">")
                 current_taxa.update(_collect_taxa(subdd, path + (key,)))
@@ -96,7 +96,7 @@ def _collapse_taxa(mkfile):
 
 def _update_intervals(mkfile):
     intervals = mkfile["Project"]["Intervals"]
-    for (interval, subdd) in intervals.iteritems():
+    for (interval, subdd) in intervals.items():
         subdd["Name"] = interval
 
 
@@ -105,7 +105,7 @@ def _update_filtering(mkfile):
     groups = mkfile["Project"]["Groups"]
 
     filtering = {}
-    for (target, filter_by) in mkfile["Project"]["Filter Singletons"].iteritems():
+    for (target, filter_by) in mkfile["Project"]["Filter Singletons"].items():
         filtering[target] = set()
         for group in filter_by:
             if group.startswith("<") and group.endswith(">"):
@@ -124,11 +124,11 @@ def _validate_taxa(path, taxa_dict, taxa = None):
     if taxa is None:
         taxa = set()
 
-    if not isinstance(taxa_dict, types.DictType):
+    if not isinstance(taxa_dict, dict):
         raise MAKEFileError("Expected dicts in Taxa tree for '%s', found %s: %r" \
                                 % (path, taxa_dict.__class__.__name__, taxa_dict))
 
-    for (key, subdd) in taxa_dict.iteritems():
+    for (key, subdd) in taxa_dict.items():
         if key.startswith("<") and key.endswith(">"):
             _validate_taxa(path + (key,), subdd, taxa)
         elif key.lower() not in taxa:

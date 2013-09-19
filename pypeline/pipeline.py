@@ -47,10 +47,10 @@ class Pypeline:
                 self._nodes.append(node)
 
 
-    def run(self, max_running = 1, dry_run = False, collapse = True, verbose = True):
+    def run(self, max_running = 1, dry_run = False, collapse = False, verbose = True):
         try:
             nodegraph = NodeGraph(self._nodes)
-        except NodeGraphError, error:
+        except NodeGraphError as error:
             ui.print_err(error, file = sys.stderr)
             return False
 
@@ -116,7 +116,8 @@ class Pypeline:
                 state = nodegraph.get_node_state(node)
                 if (state == nodegraph.RUNABLE):
                     started_nodes.append(node)
-                    running[node] = pool.apply_async(_call_run, args = (node, self._config))
+                    # Debug but changing apply_async to apply
+                    running[node] = pool.apply(_call_run, args = (node, self._config))
                     nodegraph.set_node_state(node, nodegraph.RUNNING)
                     idle_processes -= node.threads
                 elif (state in (nodegraph.DONE, nodegraph.ERROR)):
@@ -135,7 +136,7 @@ class Pypeline:
         sleep_time = 0.05
         changes = errors = False
         while running and not (errors or changes):
-            for (node, proc) in running.items():
+            for (node, proc) in list(running.items()):
                 if not proc.ready():
                     continue
                 changes = True
@@ -144,7 +145,7 @@ class Pypeline:
                     proc.get()
                 except (KeyboardInterrupt, SystemExit):
                     raise
-                except Exception, errors:
+                except Exception as errors:
                     nodegraph.set_node_state(node, nodegraph.ERROR)
                     running.pop(node)
                     ui.print_err("%s: Error occurred running command:\n%s\n" \

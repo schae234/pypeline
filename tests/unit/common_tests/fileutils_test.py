@@ -182,7 +182,7 @@ def test_create_temp_dir__empty(temp_folder):
 def test_create_temp_dir__permissions(temp_folder):
     tmp_dir = create_temp_dir(temp_folder)
     stats   = os.stat(tmp_dir)
-    assert_equal(stats.st_mode & 0777, 0700)
+    assert_equal(stats.st_mode & 0o777, 0o700)
 
 @with_temp_folder
 def test_create_temp_dir__creation_preempted(temp_folder):
@@ -345,9 +345,9 @@ def test_make_dirs__sub_directories(temp_folder):
 @with_temp_folder
 def test_make_dirs__permissions(temp_folder):
     work_dir = os.path.join(temp_folder, "test_1")
-    assert make_dirs(work_dir, mode = 0511)
+    assert make_dirs(work_dir, mode = 0o511)
     stats   = os.stat(work_dir)
-    assert_equal(oct(stats.st_mode & 0777), oct(0511))
+    assert_equal(oct(stats.st_mode & 0o777), oct(0o511))
 
 @with_temp_folder
 def test_make_dirs__creation_preemted(temp_folder):

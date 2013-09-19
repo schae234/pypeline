@@ -31,9 +31,6 @@ import pypeline.common.fileutils as fileutils
 from pypeline.common.utilities import safe_coerce_to_frozenset, \
      fast_pickle_test
 
-
-
-
 class NodeError(RuntimeError):
     pass
 
@@ -75,7 +72,7 @@ class Node(object):
         try:
             # Ensure that the node can be used in a multiprocessing context
             fast_pickle_test(self)
-        except pickle.PicklingError, error:
+        except pickle.PicklingError as error:
             raise NodeError("Node could not be pickled, please file a bug-report:\n"
                             "\tNode: %s\n\tError: %s" % (self, error))
 
@@ -128,17 +125,17 @@ class Node(object):
 
         try:
             temp = None
-            temp = fileutils.create_temp_dir(config.temp_root)
+            temp = fileutils.create_temp_dir("/tmp")
 
             self._setup(config, temp)
             self._run(config, temp)
             self._teardown(config, temp)
 
             os.rmdir(temp)
-        except NodeError, error:
+        except NodeError as error:
             self._write_error_log(temp, error)
             raise error
-        except Exception, error:
+        except Exception as error:
             self._write_error_log(temp, error)
             error = NodeUnhandledException(traceback.format_exc())
             raise error
@@ -153,6 +150,8 @@ class Node(object):
             raise NodeError("Executable(s) does not exist for node: %s" % (self,))
         self._check_for_missing_files(self.input_files, "input")
         self._check_for_missing_files(self.auxiliary_files, "auxiliary")
+        # Change to tmp dir, some commands write to pwd on default
+        os.chdir(_temp)
 
 
     def _run(self, _config, _temp):
@@ -222,13 +221,13 @@ class Node(object):
     def _validate_files(cls, files):
         files = safe_coerce_to_frozenset(files)
         for filename in files:
-            if not isinstance(filename, types.StringTypes):
+            if not isinstance(filename, str):
                 raise TypeError('Files must be strings, not %r' % filename.__class__.__name__)
         return files
 
     @classmethod
     def _validate_nthreads(cls, threads):
-        if not isinstance(threads, (types.IntType, types.LongType)):
+        if not isinstance(threads, int):
             raise TypeError("'threads' must be a positive integer, not %s" % (type(threads),))
         elif threads < 1:
             raise ValueError("'threads' must be a positive integer, not %i" % (threads,))
@@ -317,4 +316,4 @@ class MetaNode(Node):
 
 
 # Types that are allowed for the 'description' property
-_DESC_TYPES = types.StringTypes + (types.NoneType,)
+_DESC_TYPES = (str , type(None))

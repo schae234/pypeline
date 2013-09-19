@@ -170,7 +170,7 @@ def test_sequentual_phy__different_length_names_1():
 
 A_short_name                        ACGTTGATAA  CCAGG
 Another_really_long_sequence_n      TGCAGAGTAC  GACGT"""
-    print interleaved_phy(msa), expected
+    print(interleaved_phy(msa), expected)
     assert_equal(interleaved_phy(msa), expected)
 
 
@@ -182,7 +182,7 @@ def test_sequentual_phy__different_length_names_2():
 
 Burchelli_4             ACGTTGATAA  CCAGG
 Donkey                  TGCAGAGTAC  GACGT"""
-    print interleaved_phy(msa), expected
+    print(interleaved_phy(msa), expected)
     assert_equal(interleaved_phy(msa), expected)
 
 

@@ -138,7 +138,7 @@ class Reads:
                 return 64
         # Test the files
         files = record["Data"]
-        for file_names in files.itervalues():
+        for file_names in files.values():
             for file_name in file_names:
                 if detect_phred_offset(file_name) != self.quality_offset:
                     return False

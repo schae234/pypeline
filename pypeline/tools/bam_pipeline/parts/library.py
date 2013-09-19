@@ -49,17 +49,17 @@ class Library:
             bams = self._rescale_quality_scores(config, prefix, bams)
 
         self.bams = {}
-        for files_and_nodes in bams.itervalues():
+        for files_and_nodes in bams.values():
             self.bams.update(files_and_nodes)
 
         self.node = MetaNode(description  = "Library: %s" % os.path.basename(self.folder),
-                             dependencies = self.bams.values())
+                             dependencies = list(self.bams.values()))
 
 
     def _collect_bams(self, lanes):
         bams = {}
         for lane in lanes:
-            for key, files in lane.bams.iteritems():
+            for key, files in lane.bams.items():
                 key = "collapsed" if (key == "Collapsed") else "normal"
                 bams.setdefault(key, {}).update(files)
         return bams
@@ -70,12 +70,12 @@ class Library:
                      "normal"     : MarkDuplicatesNode}
 
         results = {}
-        for (key, files_and_nodes) in bams.items():
+        for (key, files_and_nodes) in list(bams.items()):
             output_filename = self.folder + ".rmdup.%s.bam" % key
             node = rmdup_cls[key](config       = config,
-                                  input_bams   = files_and_nodes.keys(),
+                                  input_bams   = list(files_and_nodes.keys()),
                                   output_bam   = output_filename,
-                                  dependencies = files_and_nodes.values())
+                                  dependencies = list(files_and_nodes.values()))
             validated_node = IndexAndValidateBAMNode(config, prefix, node)
 
             results[key] = {output_filename : validated_node}
@@ -84,7 +84,7 @@ class Library:
 
     def _rescale_quality_scores(self, config, prefix, bams):
         files_and_nodes = {}
-        for dd in bams.itervalues():
+        for dd in bams.values():
             files_and_nodes.update(dd)
         if not files_and_nodes:
             return bams
@@ -92,9 +92,9 @@ class Library:
         output_filename = self.folder + ".rescaled.bam"
         node = MapDamageRescaleNode(config       = config,
                                     reference    = prefix["Reference"],
-                                    input_files  = files_and_nodes.keys(),
+                                    input_files  = list(files_and_nodes.keys()),
                                     output_file  = output_filename,
-                                    dependencies = files_and_nodes.values())
+                                    dependencies = list(files_and_nodes.values()))
         validated_node = IndexAndValidateBAMNode(config, prefix, node)
 
         return {"Rescaled" : {output_filename : validated_node}}

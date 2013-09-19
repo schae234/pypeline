@@ -119,12 +119,12 @@ class CoverageNode(Node):
     @classmethod
     def _initialize_tables(cls, target_name, intervals, readgroups):
         subtables = {}
-        for (name, intervals) in intervals.iteritems():
+        for (name, intervals) in intervals.items():
             size = sum((end - start) for (_, start, end) in intervals)
             subtables[name] = {"SE" : 0, "PE_1" : 0, "PE_2" : 0, "Collapsed" : 0, "Hits" : 0, "M" : 0, "I" : 0, "D" : 0, "Size" : size}
 
         tables, mapping = {}, {}
-        for rg in readgroups.itervalues():
+        for rg in readgroups.values():
             subtbl_copy = get_in(tables, (target_name, rg["SM"], rg["LB"]), None)
             if not subtbl_copy:
                 subtbl_copy = copy.deepcopy(subtables)
@@ -142,7 +142,7 @@ class CoverageNode(Node):
                 if key == "RG":
                     return value
 
-        for (name, interval_list) in intervals.iteritems():
+        for (name, interval_list) in intervals.items():
             for (contig, start, end) in interval_list:
                 keys = (contig, start, end)
                 if contig is None:
@@ -181,13 +181,13 @@ class CoverageNode(Node):
 
 
     def filter_readgroups(self, table):
-        for (name, subtable) in table.iteritems():
-            for (library, contigs) in subtable.get("<NA>", {}).iteritems():
-                for (contig, counts) in contigs.iteritems():
-                    if any(value for (key, value) in counts.iteritems() if key != "Size"):
+        for (name, subtable) in table.items():
+            for (library, contigs) in subtable.get("<NA>", {}).items():
+                for (contig, counts) in contigs.items():
+                    if any(value for (key, value) in counts.items() if key != "Size"):
                         return table
 
-        for (name, subtable) in table.iteritems():
+        for (name, subtable) in table.items():
             subtable.pop("<NA>")
 
         return table
@@ -232,7 +232,7 @@ def _calculate_totals_in(tables):
         return {"SE" : 0, "PE_1" : 0, "PE_2" : 0, "Collapsed" : 0, "Size" : 0, "Hits" : 0, "M" : 0, "I" : 0, "D" : 0}
     totals = collections.defaultdict(_defaults)
 
-    subtables = tables.items()
+    subtables = list(tables.items())
     while subtables:
         subtable_key, subtable = subtables.pop()
         if subtable_key == "*":
@@ -244,7 +244,7 @@ def _calculate_totals_in(tables):
                 totals[subtable_key][key] += subtable[key]
                 totals["*"][key] += subtable[key]
         else:
-            subtables.extend(subtable.items())
+            subtables.extend(list(subtable.items()))
     return totals
 
 

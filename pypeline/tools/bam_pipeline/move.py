@@ -61,10 +61,10 @@ def move_reads(source, destination):
     src  = tmpl.format(**source)
     dst  = tmpl.format(**destination)
 
-    print "# Moving reads"
-    print "mkdir -p '%s'" % (os.path.dirname(dst,),)
-    print "mv -v '%s' '%s'" % (src, dst)
-    print "rmdir --ignore-fail-on-non-empty -vp '%s'" % (os.path.dirname(src),)
+    print("# Moving reads")
+    print("mkdir -p '%s'" % (os.path.dirname(dst,),))
+    print("mv -v '%s' '%s'" % (src, dst))
+    print("rmdir --ignore-fail-on-non-empty -vp '%s'" % (os.path.dirname(src),))
 
 
 def move_bams(source, destination):
@@ -73,11 +73,11 @@ def move_bams(source, destination):
         src  = tmpl.format(**source)
         dst  = tmpl.format(**destination)
 
-        print
-        print "# Moving BAMs for genome '%s'" % genome
-        print "mkdir -p '%s'" % (os.path.dirname(dst,),)
-        print "mv -v '%s' '%s'" % (src, dst)
-        print "rmdir --ignore-fail-on-non-empty -vp '%s'" % (os.path.dirname(src),)
+        print()
+        print("# Moving BAMs for genome '%s'" % genome)
+        print("mkdir -p '%s'" % (os.path.dirname(dst,),))
+        print("mv -v '%s' '%s'" % (src, dst))
+        print("rmdir --ignore-fail-on-non-empty -vp '%s'" % (os.path.dirname(src),))
 
 
 def retag_bams(options, source, destination):
@@ -86,7 +86,7 @@ def retag_bams(options, source, destination):
         src  = tmpl.format(**source)
         dst  = tmpl.format(**destination)
 
-        print
+        print()
         for filename in collect_bams(src):
             handle = pysam.Samfile(os.path.join(src, filename))
             try:
@@ -106,20 +106,20 @@ def retag_bams(options, source, destination):
             fpath = os.path.join(dst, filename)
             picard_tmpl = "java -jar '%s/AddOrReplaceReadGroups.jar' I=%s O=%s %s" \
                 % (options.jar_root, fpath, fpath + ".retagged.bam",
-                   " ".join("=".join(item) for item in readgroup.iteritems()))
+                   " ".join("=".join(item) for item in readgroup.items()))
 
-            print picard_tmpl
-            print "mv -v '%s' '%s'" % (fpath + ".retagged.bam", fpath)
+            print(picard_tmpl)
+            print("mv -v '%s' '%s'" % (fpath + ".retagged.bam", fpath))
 
         handle.close()
 
 
 def rm_files(record):
-    print
+    print()
     for genome in collect_genomes(record):
-        print "rm -vf {Target}/{0}/{Sample}/{Library}.*".format(genome, **record)
-        print "rm -vf {Target}/{0}.*".format(genome, **record)
-        print "rm -vfr {Target}.{0}.mapDamage/{Library}*".format(genome, **record)
+        print("rm -vf {Target}/{0}/{Sample}/{Library}.*".format(genome, **record))
+        print("rm -vf {Target}/{0}.*".format(genome, **record))
+        print("rm -vfr {Target}.{0}.mapDamage/{Library}*".format(genome, **record))
 
         filenames = []
         for postfix in ("", ".realigned"):
@@ -127,7 +127,7 @@ def rm_files(record):
                 filenames.append("{Target}.{0}{1}{2}".format(genome, postfix, ext, **record))
         filenames.append("{Target}.summary".format(**record))
 
-        print "rm -vf %s" % (" ".join(filenames), )
+        print("rm -vf %s" % (" ".join(filenames), ))
 
 
 
@@ -152,7 +152,7 @@ def main(argv):
     retag_bams(options, source, destination)
     rm_files(source)
     rm_files(destination)
-    print
+    print()
 
     return 0
 

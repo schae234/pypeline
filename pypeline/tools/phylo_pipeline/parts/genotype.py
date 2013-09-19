@@ -45,7 +45,7 @@ import pypeline.common.text as text
 import pypeline.common.sequences as sequences
 import pypeline.common.formats.fasta as fasta
 
-import common
+from . import common
 
 
 
@@ -195,7 +195,7 @@ class ExtractReference(Node):
         fastafile = pysam.Fastafile(self._reference)
         seqs = collections.defaultdict(list)
         with open(self._intervals) as bedfile:
-            intervals = text.parse_lines_by_contig(bedfile, pysam.asBed()).items()
+            intervals = list(text.parse_lines_by_contig(bedfile, pysam.asBed()).items())
             for (contig, beds) in sorted(intervals):
                 beds.sort(key = keyfunc)
 
@@ -340,7 +340,7 @@ def build_reference_nodes(options, taxa, interval, dependencies):
 
 def build_taxa_nodes(options, genotyping, intervals, taxa, dependencies = ()):
     nodes = []
-    for interval in intervals.itervalues():
+    for interval in intervals.values():
         interval = deepcopy(interval)
         # Override default genome (BAM file) if specified
         interval["Genome"] = common.get_genome_for_interval(interval, taxa)
@@ -368,7 +368,7 @@ def chain(pipeline, options, makefiles):
         options.destination = os.path.join(destination, makefile["Project"]["Title"])
 
         nodes = []
-        for taxa in makefile["Project"]["Taxa"].itervalues():
+        for taxa in makefile["Project"]["Taxa"].values():
             nodes.append(build_taxa_nodes(options, genotyping, intervals, taxa, makefile["Nodes"]))
 
         makefile["Nodes"] = tuple(nodes)

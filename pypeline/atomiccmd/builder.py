@@ -70,14 +70,8 @@ import collections
 from pypeline.atomiccmd.command import AtomicCmd
 from pypeline.common.utilities import safe_coerce_to_tuple
 
-
-
-
 class AtomicCmdBuilderError(RuntimeError):
     pass
-
-
-
 
 class AtomicCmdBuilder:
     """AtomicCmdBuilder is a class used to allow step-wise construction of an
@@ -200,7 +194,7 @@ class AtomicCmdBuilder:
         If the value of an argument is an AtomicCmdBuilder, then the builder
         is finalized and the resulting value is used."""
         kwargs = {}
-        for (key, value) in self._kwargs.iteritems():
+        for (key, value) in self._kwargs.items():
             if isinstance(value, AtomicCmdBuilder):
                 value = value.finalize()
             kwargs[key] = value
@@ -219,7 +213,7 @@ class AtomicCmdBuilder:
     def _get_option_for_editing(self, key, singleton):
         if self._object:
             raise AtomicCmdBuilderError("AtomicCmdBuilder has already been finalized")
-        elif not isinstance(key, types.StringTypes):
+        elif not isinstance(key, str):
             raise TypeError("Key must be a string, not %r" % (key.__class__.__name__,))
         elif not key:
             raise KeyError("Key cannot be an empty string")
@@ -239,7 +233,7 @@ class AtomicJavaCmdBuilder(AtomicCmdBuilder):
                 "-Djava.io.tmpdir=%s" % config.temp_root,
                 "-Djava.awt.headless=true"]
 
-        if not isinstance(gc_threads, (types.IntType, types.LongType)):
+        if not isinstance(gc_threads, int):
             raise TypeError("'gc_threads' must be an integer value, not %r" % gc_threads.__class__.__name__)
         elif gc_threads > 1:
             call.append("-XX:ParallelGCThreads=%i" % gc_threads)
@@ -256,7 +250,7 @@ class AtomicJavaCmdBuilder(AtomicCmdBuilder):
 
 class AtomicMPICmdBuilder(AtomicCmdBuilder):
     def __init__(self, call, threads = 1, **kwargs):
-        if not isinstance(threads, (types.IntType, types.LongType)):
+        if not isinstance(threads, int):
             raise TypeError("'threads' must be an integer value, not %r" % threads.__class__.__name__)
         elif threads < 1:
             raise ValueError("'threads' must be 1 or greater, not %i" % threads)
@@ -303,7 +297,7 @@ def create_customizable_cli_parameters(customize_func): # pylint: disable=C0103
         args = reversed(spec.args)
         defaults = reversed(spec.defaults or ())
 
-        for (key, value) in itertools.izip_longest(args, defaults):
+        for (key, value) in itertools.zip_longest(args, defaults):
             if key not in kwargs:
                 kwargs[key] = value
 
@@ -328,18 +322,18 @@ def apply_options(builder, options, pred = lambda s: s.startswith("-")):
       - If the key is assosiated with a boolean value, the option is set
         if true (without a value) or removed from the call if false. This
         allows easy setting/unsetting of '--do-something' type options."""
-    for (key, values) in dict(options).iteritems():
-        if not isinstance(key, types.StringTypes):
+    for (key, values) in dict(options).items():
+        if not isinstance(key, str):
             raise TypeError("Keys must be strings, not %r" % (key.__class__.__name__,))
         elif pred(key):
-            if isinstance(values, (types.ListType, types.TupleType)):
+            if isinstance(values, (list, tuple)):
                 for value in values:
                     if not isinstance(value, _ADDABLE_TYPES) or isinstance(value, _SETABLE_ONLY_TYPES):
                         raise TypeError("Unexpected type when adding options: %r" % (value.__class__.__name__,))
                     builder.add_option(key, value)
             elif not isinstance(values, _SETABLE_TYPES):
                 raise TypeError("Unexpected type when setting option: %r" % (values.__class__.__name__,))
-            elif isinstance(values, (types.BooleanType, types.NoneType)):
+            elif isinstance(values, (bool, type(None))):
                 if values or values is None:
                     builder.set_option(key)
                 else:
@@ -347,6 +341,6 @@ def apply_options(builder, options, pred = lambda s: s.startswith("-")):
             else:
                 builder.set_option(key, values)
 
-_ADDABLE_TYPES = (types.FloatType, types.IntType, types.LongType) + types.StringTypes
-_SETABLE_ONLY_TYPES = (types.BooleanType, types.NoneType)
+_ADDABLE_TYPES = (float, int, int, str)
+_SETABLE_ONLY_TYPES = (bool, type(None))
 _SETABLE_TYPES = _ADDABLE_TYPES + _SETABLE_ONLY_TYPES

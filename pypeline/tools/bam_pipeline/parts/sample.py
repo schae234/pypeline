@@ -33,7 +33,7 @@ class Sample:
         self.libraries = safe_coerce_to_tuple(libraries)
 
         for library in self.libraries:
-            self.bams.update(library.bams.iteritems())
+            self.bams.update(iter(library.bams.items()))
         self.folder = os.path.dirname(self.libraries[0].folder)
 
         self.node = MetaNode(description  = "Sample: %s" % os.path.basename(self.folder),
