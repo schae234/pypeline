@@ -374,36 +374,20 @@ class AtomicCmd:
                      "EXEC"   : "executable",
                      "AUX"    : "auxiliary",
                      "CHECK"  : "requirements"}
-<<<<<<< HEAD
-        # make a file set from VALUES 
-        file_sets = dict((val, set()) for val in key_map.itervalues())
-
-        file_sets["executable"].add(command[0])
-        for (key, filename) in files.iteritems():
-            # We are either dealing with a filename or a requirement check
-            if isinstance(filename, types.StringTypes) or key.startswith("CHECK_"):
-=======
         file_sets = dict((key, set()) for key in key_map.values())
 
         file_sets["executable"].add(command[0])
         for (key, filename) in files.items():
             if isinstance(filename, str) or key.startswith("CHECK_"):
->>>>>>> 2to3
                 if key.startswith("TEMP_OUT_"):
                     file_sets["temporary_fname"].add(filename)
                 elif not key.startswith("TEMP_"):
                     # put file in the right set based on prefix
                     key = key_map[key.split("_", 1)[0]]
                     file_sets[key].add(filename)
-<<<<<<< HEAD
-        # Strip leading path names (we deal with paths explicitly)
-        file_sets["temporary_fname"] = map(os.path.basename, file_sets["temporary_fname"])
-        file_sets["output_fname"]    = map(os.path.basename, file_sets["output"])
-=======
 
         file_sets["temporary_fname"] = list(map(os.path.basename, file_sets["temporary_fname"]))
         file_sets["output_fname"]    = list(map(os.path.basename, file_sets["output"]))
->>>>>>> 2to3
 
         return dict(list(zip(list(file_sets.keys()), list(map(frozenset, list(file_sets.values()))))))
 
