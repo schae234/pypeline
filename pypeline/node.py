@@ -125,7 +125,7 @@ class Node(object):
 
         try:
             temp = None
-            temp = fileutils.create_temp_dir("/tmp")
+            temp = fileutils.create_temp_dir(config['temp'])
 
             self._setup(config, temp)
             self._run(config, temp)

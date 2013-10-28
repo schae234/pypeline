@@ -117,7 +117,7 @@ class Pypeline:
                 if (state == nodegraph.RUNABLE):
                     started_nodes.append(node)
                     # Debug but changing apply_async to apply
-                    running[node] = pool.apply(_call_run, args = (node, self._config))
+                    running[node] = pool.apply_async(_call_run, args = (node, self._config))
                     nodegraph.set_node_state(node, nodegraph.RUNNING)
                     idle_processes -= node.threads
                 elif (state in (nodegraph.DONE, nodegraph.ERROR)):
