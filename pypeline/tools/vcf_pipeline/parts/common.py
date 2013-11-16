@@ -40,6 +40,7 @@ def parse_options(argv, parser = None):
     parser.add_option("--temp-root",          default = "./000_Temp")
     parser.add_option("--destination",        default = "./000_Variants")
     parser.add_option("--jar-root",           default = os.path.expanduser(defaults.get("jar_root")))
+    parser.add_option("--dry_run",	      default = False, action="store_true")
     
     (options, args) = parser.parse_args(argv)
 

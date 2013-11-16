@@ -125,7 +125,7 @@ def main(argv):
             pipeline.add_nodes(makefile["Nodes"])
 
     if not pipeline.run(max_running = options.max_threads,
-                        dry_run     = not options.run,
+                        dry_run     = options.dry_run,
                         verbose     = options.verbose,
                         collapse    = options.expand_nodes):
         return 1

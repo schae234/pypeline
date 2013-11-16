@@ -1,0 +1,49 @@
+#!/usr/bin/python
+
+from __future__ import print_function
+import os
+import sys
+import numpy
+from optparse import OptionParser
+
+
+def is_vcf(filename):
+    if filename.endswith(".vcf"):
+        return True
+    else:
+        print("{} is not a valid vcf file".format(arg),file=sys.sdterr)
+        return False
+
+def get_percentile(vcf_file,perc):
+    with open(vcf_file,'r') as file:
+    	quals = numpy.array(
+		    [float(line.split()[5]) for line in file if not line.startswith("#") ]
+	    )
+    qual_cutoff = numpy.percentile(quals,perc)
+    return qual_cutoff 
+
+def filter_by_qual(vcf_file,outvcf,qual_cutoff):
+    with open(vcf_file,'r') as invcf:
+        for line in invcf:
+            if line.startswith('#') or float(line.split()[5]) > qual_cutoff:
+                print(line, file=outvcf ,end="")
+
+
+def main(argv):
+    parser = OptionParser()
+    parser.add_option("-p", "--percentile", default = 99, type = int)
+    parser.add_option("-v", "--verbose", default = False, action="store_true")
+    parser.add_option("-o",'--out', default=sys.stdout )
+    options, args = parser.parse_args(argv) 
+
+    for filename in args:
+        if is_vcf(filename) == False: pass
+        cutoff = get_percentile(filename,options.percentile)
+        if options.verbose: print("{} cutoff is {}".format(filename,cutoff))
+        if options.out != sys.stdout:
+            options.out = open(options.out,'w')
+        filter_by_qual(filename,options.out,cutoff)
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv[1:]))
