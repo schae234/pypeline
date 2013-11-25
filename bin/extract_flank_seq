@@ -51,6 +51,8 @@ def main(argv):
                 if not line.startswith("chr"):
                     continue
                 chr,pos,pri,ref,alt = line.split(',')
+                ref = ref.upper()
+                alt = alt.upper()
                 pos = int(pos)
                 print(extract_flanking_seq(chr,pos,alt,ref,i,pony_genome,flank_len=options.length))
                 i += 1

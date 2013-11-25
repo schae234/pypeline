@@ -92,8 +92,15 @@ class VariantFilterNode(CommandNode):
             IN_VCF = infile,
             OUT_VCF = infile.replace("raw.vcf","raw_p"+percentile+".vcf")
         )
+        if options.makefile['union_vcf']:
+            union_file = infile.replace(
+                    options.makefile['union_vcf']['replace'],
+                    options.makefile['union_vcf']['with']
+            )
+            flt.set_option('--union_vcf',union_file)
         flt.set_option('-p',options.makefile['vcf_percentile_threshold'])
-        flt.set_option('-o',infile.replace("raw.vcf","raw_p"+percentile+".vcf"))
+        #flt.set_option('-o',os.path.basename(infile.replace("raw.vcf","raw_p"+percentile+".vcf")))
+        flt.set_option('-o','%(OUT_VCF)s')
         flt.add_option(infile)
         return {
             'commands':{
@@ -280,7 +287,7 @@ def build_variant_nodes(options,reference, group, dependencies = ()):
         reference = reference['Path'],
         infile = gatk_outfile,
         options = options,
-        dependencies = [gatk_variants]
+        dependencies = [gatk_variants,samtools_variants]
     )
     gatk_filtered = gatk_filtered.build_node()
 

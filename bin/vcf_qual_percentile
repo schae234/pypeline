@@ -5,6 +5,7 @@ import os
 import sys
 import numpy
 from optparse import OptionParser
+from collections import defaultdict
 
 
 def is_vcf(filename):
@@ -22,27 +23,56 @@ def get_percentile(vcf_file,perc):
     qual_cutoff = numpy.percentile(quals,perc)
     return qual_cutoff 
 
-def filter_by_qual(vcf_file,outvcf,qual_cutoff):
+def filter_by_qual(vcf_file,outvcf,qual_cutoff,union_vcf):
     with open(vcf_file,'r') as invcf:
         for line in invcf:
-            if line.startswith('#') or float(line.split()[5]) > qual_cutoff:
+            if line.startswith('#'):
+                # headers always get printed
+                print(line,file=outvcf,end="")
+            elif float(line.split()[5]) > qual_cutoff:
+                # check qual and union
+                if union_vcf != None :
+                    fields = line.split()
+                    if int(fields[1]) not in union_vcf[fields[0]]:
+                        continue
                 print(line, file=outvcf ,end="")
 
 
+def populate_vcf(vcf_file):
+    assert is_vcf(vcf_file)
+    # positions will be a set later!!
+    positions = defaultdict(list)
+    with open(vcf_file,'r') as file:
+        for line in file:
+            if line.startswith('#'):
+                continue
+            line = line.rstrip()
+            line = line.split()
+            positions[line[0]].append(int(line[1]))
+    for chr in positions.keys():
+        positions[chr] = set(positions[chr])
+    return positions
+
 def main(argv):
     parser = OptionParser()
+    parser.add_option("--union_vcf", default = None, type=str, help="Additionally only match variants within another vcf")
     parser.add_option("-p", "--percentile", default = 99, type = int)
     parser.add_option("-v", "--verbose", default = False, action="store_true")
     parser.add_option("-o",'--out', default=sys.stdout )
     options, args = parser.parse_args(argv) 
 
+    # Check to see if we are performing union checks
+    if options.union_vcf != None:
+        options.union_vcf = populate_vcf(options.union_vcf)
+
+    # Process input files
     for filename in args:
         if is_vcf(filename) == False: pass
         cutoff = get_percentile(filename,options.percentile)
         if options.verbose: print("{} cutoff is {}".format(filename,cutoff))
         if options.out != sys.stdout:
             options.out = open(options.out,'w')
-        filter_by_qual(filename,options.out,cutoff)
+        filter_by_qual(filename,options.out,cutoff,options.union_vcf)
 
 
 if __name__ == '__main__':
