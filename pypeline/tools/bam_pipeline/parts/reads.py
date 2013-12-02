@@ -62,7 +62,7 @@ class Reads:
             input_missing  = missing_files(self.nodes[0].input_files)
             output_missing = missing_files(self.nodes[0].output_files)
             if input_missing and not output_missing:
-                self.nodes = ()
+                    self.nodes = ()
 
 
     def _init_raw_reads(self, config, record):
@@ -116,7 +116,7 @@ class Reads:
             if re.match("^.*gz|gzip$",fastq_file_name):
                 import gzip
                 fastq_file = gzip.open(fastq_file_name, 'rb')
-            elif re.match("^.*.bz2|bzip$"):
+            elif re.match("^.*.bz2|bzip$",fastq_file_name):
                 import bz2
                 fastq_file = bz2.BZ2File(fastq_file_name)
             else:
