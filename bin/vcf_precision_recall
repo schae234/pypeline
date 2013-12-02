@@ -1,0 +1,24 @@
+#!/usr/bin/python
+from optparse import OptionParser
+import sys
+
+import pypeline.tools.vcf_pipeline.vcf_precision_recall as VPR
+
+def main(argv):
+    parser = OptionParser()
+    parser.add_option('-v', '--verbose', default=False, action='store_true')
+    parser.add_option('--final_report',default=None, type=str, help='Final Report contain "Gold Standard" variant calls.')
+    parser.add_option('--input_vcf',default=None, type=str,help="input VCF file")
+    parser.add_option('--map_file',default=None,type=str,help="PLINK type map file for snp positions")
+    parser.add_option('--rank',default='QUAL',type=str,help='Ranking field for PR curve')
+    parser.add_option('-o','--out', default=sys.stdout )
+    options, args = parser.parse_args(argv)
+
+    if not options.final_report and options.input_vcf and options.map_file:
+        raise Exception("Must have all three input files")
+    PR = VPR.VCF_PR(options.map_file, options.final_report)
+    rel= PR.relevent(options.input_vcf,options.rank)
+    PR.print_curve(rel)
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv[1:]))
