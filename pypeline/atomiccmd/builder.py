@@ -229,6 +229,25 @@ class AtomicCmdBuilder:
                 return option
 
 
+class AtomicJava7CmdBuilder(AtomicCmdBuilder):
+    def __init__(self, config, jar, gc_threads = 1, **kwargs):
+        call = ["/usr/lib/jvm/java-7-openjdk-amd64/bin/java", "-server", "-Xmx4g",
+                "-Djava.io.tmpdir=%s" % config.temp_root,
+                "-Djava.awt.headless=true"]
+
+        if not isinstance(gc_threads, (types.IntType, types.LongType)):
+            raise TypeError("'gc_threads' must be an integer value, not %r" % gc_threads.__class__.__name__)
+        elif gc_threads > 1:
+            call.append("-XX:ParallelGCThreads=%i" % gc_threads)
+        elif gc_threads == 1:
+            call.append("-XX:+UseSerialGC")
+        else:
+            raise ValueError("'gc_threads' must be a 1 or greater, not %r" % gc_threads)
+
+        call.extend(("-jar", "%(AUX_JAR)s"))
+        AtomicCmdBuilder.__init__(self, call, AUX_JAR = jar, **kwargs)
+
+
 
 
 class AtomicJavaCmdBuilder(AtomicCmdBuilder):
