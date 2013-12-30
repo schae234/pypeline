@@ -41,7 +41,7 @@ class VCF_PR(object):
                 pass
             header = report.readline()
             for line in report:
-                snp,id,f1,f2,t1,t2,ab1,ab2,gc,x,y = line.strip().split()
+                snp,id,f1,f2,t1,t2,ab1,ab2 = line.strip().split()[0:8]
                 if snp not in self.snp_map:
                     #print("{} not id map".format(snp),file=self.log)
                     continue
@@ -70,6 +70,7 @@ class VCF_PR(object):
                     for i in set(self.gold.keys()).difference(indiv):
                         del self.gold[i]
                 else:                                # Variant line
+                    import pdb; pdb.set_trace()
                     fields = line.strip().split()
                     inds = fields[9:]
                     chrom = fields[0].replace('chr','')

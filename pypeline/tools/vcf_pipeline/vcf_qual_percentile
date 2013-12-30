@@ -23,6 +23,7 @@ class VCFFilter(object):
         self.num_call_sets = None
 
     def get_percentile_cutoff(self,vcf_file,perc):
+        ''' Return the field cutoff for a specific field cutoff ''' 
         with open(vcf_file,'r') as file:
             quals = numpy.array(
                 [float(line.split()[5]) for line in file if not line.startswith("#") ]
@@ -96,7 +97,7 @@ def main(argv):
     parser.add_option("--field", default=None, type=str, help="Used with percentile or threshold arguments to filter out based on a FIELD arg")
     parser.add_option("--qual", action="store_true", default=None, help="Used with percentile or threshold arguments to filter out based on a QUAL arg")
     parser.add_option("--thresh", default=None,type=float,help='filter out --field values under this threshold')
-    parser.add_option("-p", "--percentile", default = 99, type = int,help="filter out --field values under this percentile")
+    parser.add_option("-p", "--percentile", default = None, type = int,help="filter out --field values under this percentile")
     parser.add_option("-v", "--verbose", default = False, action="store_true",help="how much do you want to know?")
     parser.add_option('--map_file',type=str,default=None,help="Only include snps in Plink map file")
     parser.add_option('--skip_chrom',action="append",type=str,help="Skip variants on chroms. Can be specified multiple times")
@@ -121,14 +122,20 @@ def main(argv):
         flt.field = options.field
         flt.thresh = options.thresh
         flt.percentile = options.percentile
+    # Check the threshold based filter
     if options.qual:
         if not options.thresh and not options.percentile:
             exit("--qual requires --thresh or --percentile")
         flt.qual = options.qual
         flt.thresh = options.thresh
-        flt.percentile = options.percentile
+    # Check for call set based filters
     if options.num_call_sets:
         flt.num_call_sets = options.num_call_sets
+    # Check for percentile based filters
+    if options.percentile:
+        flt.qual = "QUAL"
+        flt.thresh = flt.get_percentile_cutoff(args[0],options.percentile)
+        print("QUAL THRESH: {}".format(flt.thresh),file=sys.stderr)
     if options.out != sys.stdout:
         flt.out = open(options.out,'w')
 

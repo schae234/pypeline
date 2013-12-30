@@ -80,14 +80,13 @@ class SnpListNode(CommandNode):
 
 class ApplyRecalibrationNode(CommandNode):
     @create_customizable_cli_parameters
-    def customize(cls, reference, infile, options, dependencies = ()):
+    def customize(cls, reference, infile, options, model_name, dependencies = ()):
         jar_file = os.path.join(options.jar_root,"GenomeAnalysisTK-2.8-1.jar")
         apply_recal = AtomicJava7CmdBuilder(options,jar_file)
         apply_recal.add_option("-T","ApplyRecalibration")
         apply_recal.set_option("-R","%(IN_REFERENCE)s")
         apply_recal.set_option("-input","%(IN_VCF)s")
         apply_recal.add_option("-mode","SNP")
-        #apply_recal.add_option("--ts_filter_level","99.0")
         apply_recal.add_option("--lodCutoff","0")
         apply_recal.set_option("-recalFile","%(IN_RECAL)s")
         apply_recal.set_option("-tranchesFile","%(IN_TRANCHES)s")
@@ -96,13 +95,13 @@ class ApplyRecalibrationNode(CommandNode):
             IN_REFERENCE = reference,
             IN_VCF = infile,
             IN_RECAL = os.path.join(options.makefile['RecalDir'],
-                os.path.basename(infile).replace(".vcf",".recal")),
+                os.path.basename(infile).replace(".vcf",model_name+".recal")),
             IN_TRANCHES = os.path.join(options.makefile['RecalDir'],
-               os.path.basename(infile).replace(".vcf",".tranches")),
+               os.path.basename(infile).replace(".vcf",model_name+".tranches")),
             OUT_RECAL = os.path.join(options.makefile['RecalDir'],
-                os.path.basename(infile).replace(".vcf",".recal_final.vcf")),
+                os.path.basename(infile).replace(".vcf",model_name+".recal_final.vcf")),
             OUT_IDX = os.path.join(options.makefile['RecalDir'],
-                os.path.basename(infile).replace(".vcf",".recal_final.vcf.idx")),
+                os.path.basename(infile).replace(".vcf",model_name+".recal_final.vcf.idx")),
         )
         return {
             'commands' : {
@@ -112,7 +111,7 @@ class ApplyRecalibrationNode(CommandNode):
     @use_customizable_cli_parameters
     def __init__(self, parameters):
         commands = [parameters.commands['apply_recal'].finalize()]
-        description = "<Variant Apply Recal: {}".format(os.path.basename(parameters.infile))
+        description = "<Variant Apply Recal: {}".format(os.path.basename(parameters.model_name))
         CommandNode.__init__(self,
             description = description,
             command = ParallelCmds(commands),
@@ -126,15 +125,11 @@ class VariantFilterNode(CommandNode):
         percentile = str(options.makefile['vcf_percentile_threshold'])
         flt = AtomicCmdBuilder(['vcf_qual_percentile'],
             IN_VCF = infile,
-            OUT_VCF = infile.replace(".raw.vcf",".gatk_samtools_intersect.vcf")
+            OUT_VCF = outfile
         )
-        if options.makefile['union_vcf']:
-            union_file = infile.replace(
-                    options.makefile['union_vcf']['replace'],
-                    options.makefile['union_vcf']['with']
-            )
-        flt.set_option('--union_vcf',union_file)
-        flt.set_option('-o','%(OUT_VCF)s')
+        for key,val in filters.items():
+            flt.add_option(key,val)
+        flt.set_option('--out','%(OUT_VCF)s')
         flt.add_option(infile)
         return {
             'commands':{
@@ -144,7 +139,7 @@ class VariantFilterNode(CommandNode):
     @use_customizable_cli_parameters
     def __init__(self, parameters):
         commands = [parameters.commands['Filter'].finalize()]
-        description = "<Variant Filter: {}".format(os.path.basename(parameters.infile))
+        description = "<Variant Filter: {}".format(os.path.basename(parameters.outfile))
         CommandNode.__init__(self,
             description = description,
             command = ParallelCmds(commands),
@@ -152,14 +147,20 @@ class VariantFilterNode(CommandNode):
 
 class VariantRecalibratorNode(CommandNode):
     @create_customizable_cli_parameters
-    def customize(cls, reference, infile, options, dependencies = ()):
+    def customize(cls, reference, infile, recal_files, options, model_name, dependencies = ()):
         jar_file = os.path.join(options.jar_root,"GenomeAnalysisTK.jar")
-        percentile = str(options.makefile['vcf_percentile_threshold'])
         VariantRecal = AtomicJavaCmdBuilder(options,jar_file)
         VariantRecal.set_option("-T","VariantRecalibrator")
         VariantRecal.set_option("-R","%(IN_REFERENCE)s")
         VariantRecal.set_option("-input","%(IN_VCF)s")
-        VariantRecal.add_option('-resource:thresh,known=false,training=true,truth=true,prior=15.0',"%(IN_FLT)s")
+        for i,res in enumerate(recal_files):
+            VariantRecal.add_option(
+                '-resource:{},known={},training={},truth={},prior={}'.format(
+                    res['resource'], res['known'],
+                    res['training'], res['truth'],res['prior']
+                ),
+                '%(IN_REC{})s'.format(i)
+            )
         VariantRecal.add_option("-an","DP")
         VariantRecal.add_option("-an","QD")
         VariantRecal.add_option("-an","FS")
@@ -173,24 +174,25 @@ class VariantRecalibratorNode(CommandNode):
         VariantRecal.set_option('-recalFile',"%(OUT_RECAL)s")
         VariantRecal.set_option('-tranchesFile',"%(OUT_TRANCHES)s")
         VariantRecal.set_option('-rscriptFile',"%(OUT_RSCRIPT)s")
- 
+   
         VariantRecal.set_kwargs(
             IN_REFERENCE = reference,
             IN_VCF = infile,
-            IN_FLT = infile.replace("raw.vcf","raw_p"+percentile+".vcf"),
             OUT_RECAL    = os.path.join(options.makefile['RecalDir'],
-                 os.path.basename(infile).replace(".vcf",'.recal')),
+                 os.path.basename(infile).replace(".vcf",model_name+'.recal')),
             OUT_TRANCHES = os.path.join(options.makefile['RecalDir'],
-                 os.path.basename(infile).replace('.vcf','.tranches')),
+                 os.path.basename(infile).replace('.vcf',model_name+'.tranches')),
             OUT_RSCRIPT  = os.path.join(options.makefile['RecalDir'],
-                 os.path.basename(infile).replace('.vcf','.R')),
+                 os.path.basename(infile).replace('.vcf',model_name+'.R')),
             OUT_IDX      = os.path.join(options.makefile['RecalDir'],
-                 os.path.basename(infile).replace(".vcf",".recal.idx")),
+                 os.path.basename(infile).replace(".vcf",model_name+".recal.idx")),
             OUT_RPDF     = os.path.join(options.makefile['RecalDir'],
-                 os.path.basename(infile).replace(".vcf",'.R.pdf')),
+                 os.path.basename(infile).replace(".vcf",model_name+'.R.pdf')),
             OUT_TPDF     = os.path.join(options.makefile['RecalDir'],
-                 os.path.basename(infile).replace(".vcf",'.tranches.pdf'))
+                 os.path.basename(infile).replace(".vcf",model_name+'.tranches.pdf'))
         )
+        for i,res in enumerate(recal_files):
+            VariantRecal.add_kwarg("IN_REC{}".format(i),res['vcf'])
 
         return {
             'commands' : {
@@ -201,7 +203,7 @@ class VariantRecalibratorNode(CommandNode):
     @use_customizable_cli_parameters
     def __init__(self, parameters):
         commands = [parameters.commands['VariantRecal'].finalize()]
-        description = "<Variant Recalibrator: {}".format(os.path.basename(parameters.infile))
+        description = "<Variant Recalibrator: {}".format(os.path.basename(parameters.model_name))
         CommandNode.__init__(self,
             description = description,
             command = ParallelCmds(commands),
@@ -249,7 +251,11 @@ class VariantMergeNode(CommandNode):
     @create_customizable_cli_parameters
     def customize(cls, vcf_list, reference, options, dependencies= ()):
         jar_file = os.path.join(options.jar_root,"GenomeAnalysisTK-2.8-1.jar")
-        merge = AtomicJava7CmdBuilder(options, jar_file) 
+        merge = AtomicJava7CmdBuilder(options, jar_file,
+            IN_REFERENCE = reference,
+            OUT_MERGE = os.path.join(options.makefile['OutDir'],"MERGED.vcf"),
+            OUT_IDX = os.path.join(options.makefile['OutDir'],"MERGED.vcf.idx")
+        ) 
         merge.add_option('-T','CombineVariants')
         merge.set_option('-R',"%(IN_REFERENCE)s")
         merge.set_option('-nt','4')
@@ -257,11 +263,6 @@ class VariantMergeNode(CommandNode):
         for vcf in vcf_list:
             merge.add_option("--variant",vcf)
         merge.add_option("-o",'%(OUT_MERGE)s')
-        merge.set_kwargs(
-            IN_REFERENCE = reference,
-            OUT_MERGE = os.path.join(options.makefile['OutDir'],"MERGED.vcf"),
-            OUT_IDX = os.path.join(options.makefile['OutDir'],"MERGED.vcf.idx")
-        )
         return {
             'commands' : {
                 'merge' : merge
@@ -324,6 +325,15 @@ class VariantNode(CommandNode):
                              command      = ParallelCmds(commands),
                              dependencies = parameters.dependencies)
 
+def PRNode(CommandNode):
+    @create_customizable_cli_parameters
+    def customize(cls,final_report,map_file,options, dependencies=()):
+        pass
+
+    @use_customizable_cli_parameters
+    def __init__(self,parameters):
+        pass
+        
 
 def build_variant_nodes(options,reference, group, dependencies = ()):
     gatk_outfile = os.path.join(options.makefile['OutDir'],"gatk.%s.%s" % (group['Group'],reference['Label']) + ".raw.vcf") 
@@ -350,29 +360,28 @@ def build_variant_nodes(options,reference, group, dependencies = ()):
     gatk_variants = gatk_variants.build_node()
  
     # Build the Variant Filtering Nodes
-    gatk_filtered = VariantFilterNode.customize(
+    union_variants = VariantFilterNode.customize(
         reference = reference['Path'],
         infile = gatk_outfile,
-        outfile = gatk_outfile.replace(".raw.vcf","gatk_samtools_intersect.vcf"),
+        outfile = os.path.join(
+            options.makefile['OutDir'],
+            gatk_outfile.replace(".raw.vcf",".gatk_samtools_intersect.vcf")
+        ),
         filters = {
-            "--union_vcf" : infile.replace(
+            "--union_vcf" : gatk_outfile.replace(
                 options.makefile['union_vcf']['replace'],
                 options.makefile['union_vcf']['with']
-            ),
-            ""
-        }
+            )
+        },
         options = options,
         dependencies = [gatk_variants,samtools_variants]
     )
-    gatk_filtered = gatk_filtered.build_node()
-
-  
+    union_variants = union_variants.build_node()
 
     return MetaNode(description = "Variant Recalbibration",
-                dependencies = [gatk_filtered]
+                dependencies = [union_variants]
     )
 def build_merge_node(groups,prefix,options,dependencies = ()):
- 
     # Find the samtools and gatk intersect files
     intersect_files = glob.glob(
         os.path.join(options.makefile['OutDir'],"*gatk_samtools_intersect*")
@@ -386,35 +395,144 @@ def build_merge_node(groups,prefix,options,dependencies = ()):
     )
     intersect_merge = intersect_merge.build_node()
 
-    intersect_threshold = Vari
+    intersect_qual = VariantFilterNode.customize(
+     reference = prefix['Path'],
+        infile = os.path.join(options.makefile['OutDir'],"MERGED.vcf"),
+        outfile = os.path.join(options.makefile['OutDir'],"MERGED_QUAL.vcf"),
+        filters = {
+            "--percentile" : options.makefile['vcf_percentile_threshold'],
+            "--skip_chrom" : "chr1"
+        },
+        options = options,
+        dependencies = dependencies + [intersect_merge]
+    )
+    intersect_qual = intersect_qual.build_node()
+
+    intersect_map_file = VariantFilterNode.customize(
+        reference = prefix['Path'],
+        infile = os.path.join(options.makefile['OutDir'],"MERGED.vcf"),
+        outfile = os.path.join(options.makefile['OutDir'],"MERGED_SNP_LIST.vcf"),
+        filters = {
+            "--map_file" : options.makefile['map_file'],
+            "--skip_chrom" : "chr1"
+        },
+        options = options,
+        dependencies = dependencies + [intersect_merge]
+    )
+    intersect_map_file = intersect_map_file.build_node()
+
+    intersect_thresh = VariantFilterNode.customize(
+        reference = prefix['Path'],
+        infile = os.path.join(options.makefile['OutDir'],"MERGED.vcf"),
+        outfile = os.path.join(options.makefile['OutDir'],"MERGED_THRESH.vcf"),
+        filters = {
+            "--num_call_sets" : options.makefile['num_call_sets'],
+            "--skip_chrom" : "chr1",
+            "--percentile" : options.makefile['vcf_percentile_threshold']
+        },
+        options = options,
+        dependencies = dependencies + [intersect_merge]
+    )
+    intersect_thresh = intersect_thresh.build_node()
 
     return MetaNode(description = "SNP Merge node",
-        dependencies = [intersect_merge]
+        dependencies = [intersect_map_file, intersect_thresh, intersect_qual]
     )
     
-def build_recalibration_nodes(group,reference,options,dependencies = ()):
+def build_recalibration_node(group,reference,options,dependencies = ()):
     gatk_outfile = os.path.join(
-        options.makefile['OutDir'],"gatk.%s.%s" % (group['Group'],reference['Label']) + ".raw.vcf"
+        options.makefile['OutDir'],"gatk.{}.{}.raw.vcf".format(group['Group'],reference['Label'])
     ) 
-    # Build the 
+    
+    ########
+    # Build the QUAL thresh model
+    qual_thresh = VariantRecalibratorNode.customize(
+            reference = reference['Path'],
+            infile = gatk_outfile,
+             recal_files = [
+                {
+                    'resource':'QUAL',
+                    'known':'false',
+                    'training': "true",
+                    'truth' : "true",
+                    'prior' : '12.0',
+                    'vcf':os.path.join(options.makefile['OutDir'],"MERGED_QUAL.vcf"),
+                }
+            ],
+            options = options,
+            model_name = 'qual_thresh',
+            dependencies = dependencies
+    )
+    qual_thresh = qual_thresh.build_node()
 
-    # Build the Recalibration Nodes
-    gatk_recal = VariantRecalibratorNode.customize(
+    ########
+    # Build the SNP and Merge Model
+    snp_merge = VariantRecalibratorNode.customize(
+            reference = reference['Path'],
+            infile = gatk_outfile,
+            recal_files = [
+                {
+                    'resource':'snp',
+                    'known':'false',
+                    'training': "true",
+                    'truth' : "true",
+                    'prior' : '12.0',
+                    'vcf':os.path.join(options.makefile['OutDir'],"MERGED_SNP_LIST.vcf"),
+                },
+                {
+                    'resource':'thresh',
+                    'known':'false',
+                    'training': "true",
+                    'truth' : "false",
+                    'prior' : '10.0',
+                    'vcf':os.path.join(options.makefile['OutDir'],"MERGED_THRESH.vcf"),
+                 }
+            ],
+            options = options,
+            model_name = 'snp_and_thresh',
+            dependencies = dependencies
+    )
+    snp_merge = snp_merge.build_node()
+
+     # Build the REcalibration Application nodes
+    qual_apply = ApplyRecalibrationNode.customize(
             reference = reference['Path'],
             infile = gatk_outfile,
             options = options,
-            dependencies = [gatk_filtered]
+            model_name = 'qual_thresh',
+            dependencies = qual_thresh
     )
-    gatk_recal = gatk_recal.build_node()
+    qual_apply = qual_apply.build_node()
+   
 
     # Build the REcalibration Application nodes
-    gatk_apply = ApplyRecalibrationNode.customize(
+    sm_apply = ApplyRecalibrationNode.customize(
             reference = reference['Path'],
             infile = gatk_outfile,
             options = options,
-            dependencies = [gatk_recal]
+            model_name = 'snp_and_thresh',
+            dependencies = snp_merge
     )
-    gatk_apply = gatk_apply.build_node()
+    sm_apply = sm_apply.build_node()
+
+    # Run the PR analysis on the Morgans
+   #MOR_PR = PRNode.customize(
+   #        final_repoert = os.path.join(
+   #            options.makefile['BaseDir'],"000_PR/Minnesota-Anderson\ Equine\ V1\ 19jun2012_FinalReport.txt"
+   #        ),
+   #        map_file = os.path.join(
+   #            options.makefile['BaseDir'],"CH1_Gentrain.map"
+   #        ),
+   #        options = options,
+   #        vcf_files = [
+
+   #        ],
+   #        dependencies = [sm_apply,qual_apply]
+   #)
+
+    return MetaNode(description="VCF Recal Node",
+        dependencies = [snp_merge,sm_apply,qual_thresh,qual_apply]
+    )
 
 
 def chain(pipeline, options, makefiles):
@@ -424,32 +542,30 @@ def chain(pipeline, options, makefiles):
         for prefix in makefile['Prefixes']:
             # Call variants with both samtools and gatk
             # Create filtes containing only intersection b/w callers
-            for group in makefile['Targets']:
-                nodes.append(
-                    build_variant_nodes(
-            			options,
-                        makefile['Prefixes'][prefix],
-                        group
-                    )
-                )
+            variant_nodes = [
+                build_variant_nodes(
+                    options, 
+                    makefile['Prefixes'][prefix],
+                    group) for group in makefile['Targets']
+            ]
             # Here we have intersections between gatk and samtools
             # merge them so we can choose variants from multiple calling groups
             groups = [i['Group'] for i in makefile['Targets']]
-            nodes.append(build_snp_list_node(
+            merge_node = [build_merge_node(
                 groups,
                 makefile['Prefixes'][prefix],
                 options,
-                nodes
-            ))
+                variant_nodes
+            )]
             # Build recalibration nodes using two classes of nodes
             # known snps as well as snps that occur in 
-            for group in makefile['Targets']:
-                nodes.append(
-                    build_recalibration_nodes(
-                        group,
-                        makefile['Prefixes'][prefix],
-                        options
-                    )
-                )
-    return nodes
+            recal_nodes = [
+               build_recalibration_node(
+                   group,
+                   makefile['Prefixes'][prefix],
+                   options,
+                   merge_node
+               ) for group in makefile['Targets']
+            ]
+    return variant_nodes + merge_node + recal_nodes
             

@@ -172,6 +172,13 @@ class AtomicCmdBuilder:
                 raise AtomicCmdBuilderError("Attempted to overwrite existing path: %r" % key)
         self._kwargs.update(kwargs)
 
+    def add_kwarg(self, key, val):
+        if self._object:
+            raise AtomicCmdBuilderError("Parameters have already been finalized")
+        if key in self._kwargs:
+            raise AtomicCmdBuilderError("Attempted to overwrite existing path: %r" % key)
+        self._kwargs[key] = val
+        
 
     @property
     def call(self):
