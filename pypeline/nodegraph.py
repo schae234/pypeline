@@ -44,7 +44,6 @@ class NodeGraph:
 
     def __init__(self, nodes):
         nodes = safe_coerce_to_frozenset(nodes)
-
         self._reverse_dependencies = collections.defaultdict(set)
         self._collect_reverse_dependencies(nodes, self._reverse_dependencies)
         self._intersections = self._calculate_intersections()
@@ -272,7 +271,9 @@ class NodeGraph:
     @classmethod
     def _collect_reverse_dependencies(cls, lst, rev_dependencies):
         for node in lst:
+            # Add node to set 
             rev_dependencies[node] # pylint: disable=W0104
+            # Recursively add both deps and subnodes
             for dependency in (node.dependencies | node.subnodes):
                 rev_dependencies[dependency].add(node)
             cls._collect_reverse_dependencies(node.dependencies, rev_dependencies)

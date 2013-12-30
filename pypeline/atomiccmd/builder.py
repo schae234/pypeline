@@ -77,8 +77,6 @@ class AtomicCmdBuilderError(RuntimeError):
     pass
 
 
-
-
 class AtomicCmdBuilder:
     """AtomicCmdBuilder is a class used to allow step-wise construction of an
     AtomicCmd object. This allows the user of a Node to modify the behavior
@@ -120,8 +118,8 @@ class AtomicCmdBuilder:
         """See AtomiCmd.__init__ for parameters / keyword arguments."""
 
         self._call    = safe_coerce_to_tuple(call)
-        self._options = []
-        self._values  = []
+        self._options = []  
+        self._values  = []  
         self._kwargs  = {}
         self._object  = None
 
@@ -174,6 +172,13 @@ class AtomicCmdBuilder:
                 raise AtomicCmdBuilderError("Attempted to overwrite existing path: %r" % key)
         self._kwargs.update(kwargs)
 
+    def add_kwarg(self, key, val):
+        if self._object:
+            raise AtomicCmdBuilderError("Parameters have already been finalized")
+        if key in self._kwargs:
+            raise AtomicCmdBuilderError("Attempted to overwrite existing path: %r" % key)
+        self._kwargs[key] = val
+        
 
     @property
     def call(self):
@@ -229,6 +234,25 @@ class AtomicCmdBuilder:
                 if (singleton is not None) and (option["Singleton"] != singleton):
                     raise AtomicCmdBuilderError("Mixing of singleton and non-singleton options: %r" % key)
                 return option
+
+
+class AtomicJava7CmdBuilder(AtomicCmdBuilder):
+    def __init__(self, config, jar, gc_threads = 1, **kwargs):
+        call = ["/usr/lib/jvm/java-7-openjdk-amd64/bin/java", "-server", "-Xmx4g",
+                "-Djava.io.tmpdir=%s" % config.temp_root,
+                "-Djava.awt.headless=true"]
+
+        if not isinstance(gc_threads, (types.IntType, types.LongType)):
+            raise TypeError("'gc_threads' must be an integer value, not %r" % gc_threads.__class__.__name__)
+        elif gc_threads > 1:
+            call.append("-XX:ParallelGCThreads=%i" % gc_threads)
+        elif gc_threads == 1:
+            call.append("-XX:+UseSerialGC")
+        else:
+            raise ValueError("'gc_threads' must be a 1 or greater, not %r" % gc_threads)
+
+        call.extend(("-jar", "%(AUX_JAR)s"))
+        AtomicCmdBuilder.__init__(self, call, AUX_JAR = jar, **kwargs)
 
 
 
@@ -332,6 +356,7 @@ def apply_options(builder, options, pred = lambda s: s.startswith("-")):
         if not isinstance(key, types.StringTypes):
             raise TypeError("Keys must be strings, not %r" % (key.__class__.__name__,))
         elif pred(key):
+			# The key is associated with a list, use add_option
             if isinstance(values, (types.ListType, types.TupleType)):
                 for value in values:
                     if not isinstance(value, _ADDABLE_TYPES) or isinstance(value, _SETABLE_ONLY_TYPES):

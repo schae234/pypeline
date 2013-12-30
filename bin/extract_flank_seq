@@ -1,0 +1,62 @@
+#!/usr/bin/python
+
+from __future__ import print_function
+import os
+import sys
+from optparse import OptionParser
+from collections import defaultdict
+
+def read_fasta(fasta_file):
+    genome = defaultdict(list)
+    current_chrom = 0
+    with open(fasta_file,'r') as fasta:
+        for line in fasta:
+            line = line.rstrip()
+            if line.startswith(">"):
+                current_chrom = 'chr'+line.split()[0].replace(">","")
+            else:
+                # speed things up
+                genome[current_chrom].append(line.upper())
+    genome = {
+        key:"".join(val) for key,val in genome.items()
+    }
+    return genome
+            
+def extract_flanking_seq(chr, pos, alt, ref,line, genome, flank_len=80):
+    ind = pos-1
+    if genome[chr][ind] != ref:# and genome[chr][ind] != alt:
+        print("SNP didnt match reference on line {}: {}, {}, alt:{}, ref:{} ensemble: {}".format(line,chr,pos, alt, ref, genome[chr][ind]),file=sys.stderr)
+    flank = genome[chr][ind-flank_len:ind] \
+        + "[" + ref + "/" + alt + "]" \
+        + genome[chr][ind+1:ind+flank_len+1]
+    return flank.upper()
+
+def main(argv):
+    parser = OptionParser()    
+    parser.add_option('-f','--fasta')
+    parser.add_option('-v','--verbose', default=False, action="store_true")
+    parser.add_option('-l','--length', default=80, type=int)
+    options, args = parser.parse_args(argv)
+
+    if options.verbose: 
+        print("Reading in fasta file: {}".format(options.fasta),file=sys.stderr) 
+    pony_genome = read_fasta(options.fasta)
+    for snp_file in args:
+        if options.verbose:
+            print("Processing {}".format(snp_file),file=sys.stderr)
+        with open(snp_file,'r') as file:
+            i = 1
+            for line in file:
+                line = line.rstrip()
+                if not line.startswith("chr"):
+                    continue
+                chr,pos,pri,ref,alt = line.split(',')
+                ref = ref.upper()
+                alt = alt.upper()
+                pos = int(pos)
+                print(extract_flanking_seq(chr,pos,alt,ref,i,pony_genome,flank_len=options.length))
+                i += 1
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv[1:]))
