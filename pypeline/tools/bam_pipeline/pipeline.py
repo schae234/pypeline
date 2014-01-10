@@ -44,8 +44,6 @@ from pypeline.tools.bam_pipeline.nodes import MapDamageNode
 import pypeline.tools.bam_pipeline.parts as parts
 
 
-
-
 def _add_mapdamage_nodes(config, makefile, target):
     if "mapDamage" not in makefile["Options"]["Features"]:
         return
