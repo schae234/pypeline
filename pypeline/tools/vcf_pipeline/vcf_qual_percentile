@@ -5,6 +5,7 @@ import os
 import sys
 import numpy
 import re
+import bisect
 from optparse import OptionParser
 from collections import defaultdict
 
@@ -20,7 +21,10 @@ class VCFFilter(object):
         self.out = sys.stdout
         self.log = sys.stderr
         self.skip_chroms = None
+        self.keep_chroms = None
         self.num_call_sets = None
+        self.repeats = None
+        self.within = None
 
     def get_percentile_cutoff(self,vcf_file,perc):
         ''' Return the field cutoff for a specific field cutoff ''' 
@@ -35,23 +39,31 @@ class VCFFilter(object):
         ''' This method performs the filtering. It assumes you set up the filters ahead of time '''
         # Filter the vcf file
         with open(vcf_file,'r') as invcf:
+            i = 0
             for line in invcf:
                 if line.startswith('#'):
                     # headers always get printed
                     print(line,file=self.out,end="")
                 else:
                     fields = line.split()
+                    if self.within and self.within[i]['skip']:
+                        fields[6] += "WITHIN"
                     if self.skip_chroms and fields[0] in self.skip_chroms:
-                        continue 
+                        fields[6] += "SKIP_CHROM"
+                    if self.keep_chroms and fields[0] not in self.keep_chroms:
+                        fields[6] += "NOT_KEEP_CHROM"
                     if self.qual and float(fields[5]) < self.thresh:
-                        continue
+                        fields[6] += "LOW_QUAL_THRESH"
                     if self.field and self.thresh:
                         field = re.search(str(';'+self.field+'=([^;]*)(;?)'),fields[7])
                         if field == None:
-                            print("No {} field for variant {} {}".format(self.field,fields[0],fields[1]),file=self.log)
+                            #print("No {} field for variant {} {}".format(self.field,fields[0],fields[1]),file=self.log)
+                            fields[6] += "NO_FIELD"
                         else:
                             if float(field.group(1)) < self.thresh:
-                                continue
+                                fields[6] += "LOW_"+self.field.upper()
+                    if self.repeats and self.in_repeat_region(fields[0],int(fields[1])):
+                        continue
                     if self.union_positions and int(fields[1]) not in self.union_positions[fields[0]]:
                         continue
                     if self.map_positions and int(fields[1]) not in self.map_positions[fields[0]]:
@@ -63,7 +75,8 @@ class VCFFilter(object):
                         else:
                             if len(sets.group(1).split('-')) < self.num_call_sets or sets.group(1) == 'FilteredInAll':
                                 continue
-                    print(line, file=self.out ,end="")
+                    print("\t".join(fields), file=self.out)
+                    i += 1
 
     def populate_union(self,vcf_file):
         positions = defaultdict(list)
@@ -90,6 +103,48 @@ class VCFFilter(object):
             # covert to set for fast intersection checks
             positions[chr] = set(positions[chr])
         self.map_positions = positions
+    
+    def populate_repeat(self,repeat_file):
+        ranges = defaultdict(lambda: defaultdict(list))
+        with open(repeat_file,'r') as file:
+            for line in file:
+                chr,start,end = line.strip().split() 
+                ranges[chr]['start'].append(int(start))
+                ranges[chr]['end'].append(int(end))
+        self.repeats = ranges
+    
+    def in_repeat_region(self,chrom,position):
+        index = min(bisect.bisect_left(self.repeats[chrom]['start'],position)-1,0)
+        if self.repeats[chrom]['start'][index] < position and self.repeats[chrom]['end'][index] > position:
+            return True
+        else:
+            return False
+
+    def populate_within(self, not_within, vcf_file):
+        i = 0
+        self.within = []
+        with open(vcf_file,'r') as file:
+            for line in file:
+                if line.startswith('#'):
+                    continue
+                else:
+                    fields = line.strip().split()
+                    if i >  2:
+                        if abs(self.within[i-2]['pos']-self.within[i-3]['pos']) < not_within:
+                            self.within[i-2]['skip'] = True
+                            self.within[i-3]['skip'] = True
+                        if abs(self.within[i-2]['pos']-self.within[i-1]['pos']) < not_within:
+                            self.within[i-2]['skip'] = True
+                            self.within[i-1]['skip'] = True
+                    self.within.append({
+                        'pos'  : int(fields[1]),
+                        'skip' : False
+                    })
+                    i+=1
+                    
+
+        
+            
 
 def main(argv):
     parser = OptionParser()
@@ -101,13 +156,18 @@ def main(argv):
     parser.add_option("-v", "--verbose", default = False, action="store_true",help="how much do you want to know?")
     parser.add_option('--map_file',type=str,default=None,help="Only include snps in Plink map file")
     parser.add_option('--skip_chrom',action="append",type=str,help="Skip variants on chroms. Can be specified multiple times")
+    parser.add_option('--keep_chrom',action="append",type=str,help="keep variants on chroms. Can be specified multiple times")
     parser.add_option('--num_call_sets',type=float,help="the minimum number of call sets a variant must be called in")
+    parser.add_option('--repetitive',type=str,help="Filters out variants in repetitive regions. Supply a three columned file with chr,start,end regions")
+    parser.add_option('--not_within',type=int,default=None,help="the variant is not within X base pairs to another variant, if so, both get filtered")
+    #parser.add_option('--inline',action="store_true",default=False,help="Modify the VCF inline")
     
     parser.add_option("-o",'--out', default=sys.stdout )
     options, args = parser.parse_args(argv) 
 
     # Create an empty filter and add based on options
     flt = VCFFilter()
+    # Check to see if we are performing proximity checks
     # Check to see if we are performing union checks
     if options.union_vcf != None:
         flt.populate_union(options.union_vcf)
@@ -115,8 +175,12 @@ def main(argv):
     if options.map_file != None:
         flt.populate_map(options.map_file)
     # Check for chrom based filters
+    if options.skip_chrom and options.keep_chrom:
+        exit("Cannot specify --keep_chrom AND --skip_chrom")
     if options.skip_chrom:
         flt.skip_chroms = set(options.skip_chrom)
+    if options.keep_chrom:
+        flt.keep_chroms = set(options.keep_chrom)
     # Check for field based filters, can be either a thresh OR percentile, not both
     if options.field and (options.field or options.percentile):
         flt.field = options.field
@@ -136,11 +200,16 @@ def main(argv):
         flt.qual = "QUAL"
         flt.thresh = flt.get_percentile_cutoff(args[0],options.percentile)
         print("QUAL THRESH: {}".format(flt.thresh),file=sys.stderr)
+    if options.repetitive:
+        flt.populate_repeat(options.repetitive)
     if options.out != sys.stdout:
         flt.out = open(options.out,'w')
 
     # Process input files
     for filename in args:
+        # Check if we are filtering proximity:
+        if options.not_within:
+            flt.populate_within(options.not_within,filename)
         flt.filter(filename)
 
 
