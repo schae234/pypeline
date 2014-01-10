@@ -25,6 +25,8 @@ class VCFFilter(object):
         self.num_call_sets = None
         self.repeats = None
         self.within = None
+        self.allelic = None
+        self.emit_type = "all"
 
     def get_percentile_cutoff(self,vcf_file,perc):
         ''' Return the field cutoff for a specific field cutoff ''' 
@@ -39,7 +41,7 @@ class VCFFilter(object):
         ''' This method performs the filtering. It assumes you set up the filters ahead of time '''
         # Filter the vcf file
         with open(vcf_file,'r') as invcf:
-            i = 0
+            line_num = 0
             for line in invcf:
                 if line.startswith('#'):
                     fields = line.split()
@@ -48,37 +50,40 @@ class VCFFilter(object):
                     print(line,file=self.out,end="")
                 else:
                     fields = line.split()
-                    if self.within and self.within[i]['skip']:
-                        fields[6] += "WITHIN"
+                    if self.within and self.within[line_num]['skip']:
+                        fields[6] += ";WITHIN"
                     if self.skip_chroms and fields[0] in self.skip_chroms:
-                        fields[6] += "SKIP_CHROM"
+                        fields[6] += ";SKIP_CHROM"
                     if self.keep_chroms and fields[0] not in self.keep_chroms:
-                        fields[6] += "NOT_KEEP_CHROM"
+                        fields[6] += ";NOT_KEEP_CHROM"
                     if self.qual and float(fields[5]) < self.thresh:
-                        fields[6] += "LOW_QUAL_THRESH"
+                        fields[6] += ";LOW_QUAL_THRESH"
                     if self.field and self.thresh:
                         field = re.search(str(';?'+self.field+'=([^;]*)(;?)'),fields[7])
                         if field == None:
-                            fields[6] += "NO_FIELD"
+                            fields[6] += ";NO_FIELD"
                             self.log("No {} field for variant {} {}".format(self.field,fields[0],fields[1]))
                         else:
                             if float(field.group(1)) < self.thresh:
-                                fields[6] += "LOW_"+self.field.upper()
+                                fields[6] += ";LOW_"+self.field.upper()
                     if self.repeats and self.in_repeat_region(fields[0],int(fields[1])):
-                        continue
+                        fields[6] += ";REPEAT"
                     if self.union_positions and int(fields[1]) not in self.union_positions[fields[0]]:
-                        continue
+                        fields[6] += ";UNION"
                     if self.map_positions and int(fields[1]) not in self.map_positions[fields[0]]:
-                        continue
+                        fields[6] += ";MAP"
                     if self.num_call_sets:
                         sets = re.search(';?set=([^;]*)(;?)',fields[7])
                         if sets == None:
                             self.log("No set found for {} {}".format(fields[0],fields[1]))
                         else:
                             if len(sets.group(1).split('-')) < self.num_call_sets or sets.group(1) == 'FilteredInAll':
-                                continue
-                    print("\t".join(fields), file=self.out)
-                    i += 1
+                                fields[6] += ";LOW_CALL_SET"
+                    if self.allelic and len(fields[4].split(',')) >= self.allelic:
+                        fields[6] += ";ALLELIC"
+                    # Emit the processed variant to the output file
+                    self.emit(fields)
+                    line_num += 1
 
     def populate_intersect(self,vcf_file):
         self.log("Reading in union file: {}".format(vcf_file))
@@ -151,23 +156,36 @@ class VCFFilter(object):
     def log(self,*args):
         print(*args,file=self.log_file)
 
+    def emit(self,fields):
+        if self.emit_type == 'pass' and fields[6] != "PASS":
+            return None
+        if self.emit_type == 'filtered' and fields == 'PASS':
+            return None
+        print("\t".join(fields),file=self.out)
+            
+        
+
 
 def main(argv):
     parser = OptionParser()
-    parser.add_option("--intersect_vcf", default = None, type=str, help="Only match variants within another vcf")
-    parser.add_option("--exclude_vcf",default=None, type=str,help="Only match variants not within another vcf")
     parser.add_option("--filter",default=None, type=str,help="filter out variants that do not match based on FILTER field, e.g. LowQual")
     parser.add_option("--field", default=None, type=str, help="Used with percentile or threshold arguments to filter out based on a FIELD arg")
     parser.add_option("--qual", action="store_true", default=None, help="Used with percentile or threshold arguments to filter out based on a QUAL arg")
     parser.add_option("--thresh", default=None,type=float,help='filter out --field values under this threshold')
-    parser.add_option("-p", "--percentile", default = None, type = int,help="filter out --field values under this percentile")
-    parser.add_option("-v", "--verbose", default = False, action="store_true",help="how much do you want to know?")
-    parser.add_option('--map_file',type=str,default=None,help="Only include snps in Plink map file")
+    parser.add_option("--percentile", default = None, type = int,help="filter out --field values under this percentile")
     parser.add_option('--skip_chrom',action="append",type=str,help="Skip variants on chroms. Can be specified multiple times")
     parser.add_option('--keep_chrom',action="append",type=str,help="keep variants on chroms. Can be specified multiple times")
     parser.add_option('--num_call_sets',type=float,help="the minimum number of call sets a variant must be called in")
-    parser.add_option('--repetitive',type=str,help="Filters out variants in repetitive regions. Supply a three columned file with chr,start,end regions")
     parser.add_option('--not_within',type=int,default=None,help="the variant is not within X base pairs to another variant, if so, both get filtered")
+    parser.add_option('--allelic',type=int,default=None,help="Filter out variants which have more alleles than X")
+    # Options that require extraneous files
+    parser.add_option('--repetitive',type=str,help="Filters out variants in repetitive regions. Supply a three columned file with chr,start,end regions")
+    parser.add_option('--map_file',type=str,default=None,help="Only include snps in Plink map file")
+    parser.add_option("--intersect_vcf", default = None, type=str, help="Only match variants within another vcf")
+    parser.add_option("--exclude_vcf",default=None, type=str,help="Only match variants not within another vcf")
+    # Options related to output and formatting
+    parser.add_option("--verbose", default = False, action="store_true",help="how much do you want to know?")
+    parser.add_option('--emit',type=str,default="all",help="Controls which variants to print out. One of all, pass, or filtered")
     #parser.add_option('--inline',action="store_true",default=False,help="Modify the VCF inline")
     
     parser.add_option("-o",'--out', default=sys.stdout )
@@ -175,6 +193,7 @@ def main(argv):
 
     # Create an empty filter and add based on options
     flt = VCFFilter()
+    flt.emit_type = options.emit
     # Check to see if we are performing proximity checks
     flt.log("Starting Analysis...")
     # Check to see if we are performing union checks
@@ -216,6 +235,8 @@ def main(argv):
     # Check for FILTER based filters
     if options.filter:
         flt.filter = options.filter
+    if options.allelic:
+        flt.allelic = options.allelic
 
     # Process input files
     for filename in args:
