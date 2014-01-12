@@ -6,6 +6,7 @@ import sys
 import numpy
 import re
 import bisect
+import time
 from optparse import OptionParser
 from collections import defaultdict
 
@@ -27,6 +28,12 @@ class VCFFilter(object):
         self.within = None
         self.allelic = None
         self.emit_type = "all"
+        # Set counters
+        self.num_within = 0
+        self.num_allelic = 0
+        self.num_repeat = 0
+        self.num_field = 0
+
 
     def get_percentile_cutoff(self,vcf_file,perc):
         ''' Return the field cutoff for a specific field cutoff ''' 
@@ -50,8 +57,14 @@ class VCFFilter(object):
                     print(line,file=self.out,end="")
                 else:
                     fields = line.split()
+
+                    if self.allelic and len(fields[4].split(',')) >= self.allelic:
+                        continue
+                        fields[6] += ";ALLELIC"
+                        self.num_allelic += 1
                     if self.within and self.within[line_num]['skip']:
                         fields[6] += ";WITHIN"
+                        self.num_within += 1
                     if self.skip_chroms and fields[0] in self.skip_chroms:
                         fields[6] += ";SKIP_CHROM"
                     if self.keep_chroms and fields[0] not in self.keep_chroms:
@@ -66,8 +79,10 @@ class VCFFilter(object):
                         else:
                             if float(field.group(1)) < self.thresh:
                                 fields[6] += ";LOW_"+self.field.upper()
+                                self.num_field += 1
                     if self.repeats and self.in_repeat_region(fields[0],int(fields[1])):
                         fields[6] += ";REPEAT"
+                        self.num_repeat += 1
                     if self.union_positions and int(fields[1]) not in self.union_positions[fields[0]]:
                         fields[6] += ";UNION"
                     if self.map_positions and int(fields[1]) not in self.map_positions[fields[0]]:
@@ -79,8 +94,6 @@ class VCFFilter(object):
                         else:
                             if len(sets.group(1).split('-')) < self.num_call_sets or sets.group(1) == 'FilteredInAll':
                                 fields[6] += ";LOW_CALL_SET"
-                    if self.allelic and len(fields[4].split(',')) >= self.allelic:
-                        fields[6] += ";ALLELIC"
                     # Emit the processed variant to the output file
                     self.emit(fields)
                     line_num += 1
@@ -135,11 +148,13 @@ class VCFFilter(object):
         i = 0
         self.within = []
         with open(vcf_file,'r') as file:
-            for line in file:
+            for line_num,line in enumerate(file):
                 if line.startswith('#'):
                     continue
                 else:
                     fields = line.strip().split()
+                    if self.verbose and line_num % 1000000 == 0:
+                        self.log("Populating within line: {}".format(line_num))
                     if i >  2:
                         if abs(self.within[i-2]['pos']-self.within[i-3]['pos']) < not_within:
                             self.within[i-2]['skip'] = True
@@ -154,7 +169,7 @@ class VCFFilter(object):
                     i+=1
                     
     def log(self,*args):
-        print(*args,file=self.log_file)
+        print(time.ctime(),' - ',*args,file=self.log_file)
 
     def emit(self,fields):
         if self.emit_type == 'pass' and fields[6] != "PASS":
@@ -163,7 +178,14 @@ class VCFFilter(object):
             return None
         print("\t".join(fields),file=self.out)
             
-        
+    def filter_totals(self):
+        self.log(''' 
+            Filter totals:
+            within {}
+            allelic {}
+            repeat {}
+            field {}
+        '''.format(self.num_within,self.num_allelic,self.num_repeat,self.num_field)) 
 
 
 def main(argv):
@@ -194,6 +216,7 @@ def main(argv):
     # Create an empty filter and add based on options
     flt = VCFFilter()
     flt.emit_type = options.emit
+    flt.verbose = options.verbose
     # Check to see if we are performing proximity checks
     flt.log("Starting Analysis...")
     # Check to see if we are performing union checks
@@ -244,6 +267,8 @@ def main(argv):
         if options.not_within:
             flt.populate_within(options.not_within,filename)
         flt.process(filename)
+    if flt.verbose:
+        flt.filter_totals()
     flt.log("... analysis ended")
 
 if __name__ == '__main__':
