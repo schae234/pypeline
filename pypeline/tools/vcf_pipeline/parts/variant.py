@@ -224,7 +224,9 @@ class UnifiedGenotyperNode(CommandNode):
         UnifiedGenotyper.set_option("-stand_call_conf", "30.0")
         UnifiedGenotyper.set_option("-stand_emit_conf", "10.0")
         UnifiedGenotyper.set_option("-dcov", "200")
-        UnifiedGenotyper.set_option("-nct", "3")
+        #UnifiedGenotyper.set_option("-nct", "3")
+        UnifiedGenotyper.set_option("-L", "chrUn2:1-19213991")
+    
 
         UnifiedGenotyper.set_kwargs(
             IN_REFERENCE = reference,
@@ -292,6 +294,7 @@ class VariantNode(CommandNode):
             CHECK_SAM    = SAMTOOLS_VERSION
         )
         pileup.set_option('-u') # uncompressed output
+        pileup.set_option('-r','chrUn2:1-19214051')
         pileup.set_option('-f', "%(IN_REFERENCE)s") # Add reference option
 
         
@@ -336,7 +339,10 @@ def PRNode(CommandNode):
         
 
 def build_variant_nodes(options,reference, group, dependencies = ()):
-    gatk_outfile = os.path.join(options.makefile['OutDir'],"gatk.%s.%s" % (group['Group'],reference['Label']) + ".raw.vcf") 
+    gatk_outfile = os.path.join(
+        options.makefile['OutDir'],"gatk.{}.{}.raw.vcf".format(
+            group['Group'],reference['Label'])
+    ) 
     # Build the Variant Calling Nodes
     gatk_variants = UnifiedGenotyperNode.customize(
         reference = reference['Path'],
@@ -347,7 +353,10 @@ def build_variant_nodes(options,reference, group, dependencies = ()):
         options = options
     )
 
-    samtools_outfile = os.path.join(options.makefile['OutDir'],"samtools.%s.%s" % (group['Group'],reference['Label']) + ".raw.vcf") 
+    samtools_outfile = os.path.join(options.makefile['OutDir'],
+        "samtools.{}.{}.raw.vcf".format(
+        group['Group'],reference['Label'])
+    ) 
     samtools_variants = VariantNode.customize(
         reference = reference['Path'],
         infiles = [     os.path.join(options.makefile['BaseDir'],
@@ -407,7 +416,9 @@ def build_merge_node(groups,prefix,options,dependencies = ()):
 #
     intersect_merge = VariantMergeNode.customize(
         vcf_list = intersect_files, 
-        outfile = os.path.join(options.makefile['OutDir'],"MERGED.vcf"),
+        outfile = os.path.join(options.makefile['OutDir'],
+            "MERGED.{}.vcf".format(prefix['Label'])
+        ),
         reference = prefix['Path'], 
         options = options, 
         dependencies = dependencies
@@ -430,7 +441,9 @@ def build_merge_node(groups,prefix,options,dependencies = ()):
     # Create a filterd VCF containing only 54K snps on CH1
     intersect_CH1_map_file = VariantFilterNode.customize(
         reference = prefix['Path'],
-        infile = os.path.join(options.makefile['OutDir'],"MERGED.vcf"),
+        infile = os.path.join(options.makefile['OutDir'],
+            "MERGED.{}.vcf".format(prefix['Label'])
+        ),
         outfile = os.path.join(options.makefile['OutDir'],"MERGED_CH1_SNP_LIST.vcf"),
         filters = {
             "--map_file" : options.makefile['map_file'],
@@ -714,5 +727,5 @@ def chain(pipeline, options, makefiles):
                 recal_nodes
                 )
             ]
-    return variant_nodes + merge_node + recal_nodes + snp_list
+    return variant_nodes #+ merge_node + recal_nodes + snp_list
             
