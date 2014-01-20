@@ -63,10 +63,10 @@ class VCFWindow(object):
                     cur_chrom = self.win_chroms[line_num]
                     pool.append(fields)
                 line_num += 1
-                
+               
+ 
     def process_pool(self,pool):
         print(len(pool))
-                
 
     def log(self,*args):
         print(time.ctime(),' - ',*args,file=self.log_file)
