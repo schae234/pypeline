@@ -39,15 +39,6 @@ class VCFFilter(object):
         self.buffer = None
 
 
-    def get_percentile_cutoff(self,vcf_file,perc):
-        ''' Return the field cutoff for a specific field cutoff ''' 
-        with open(vcf_file,'r') as file:
-            quals = numpy.array(
-                [float(line.split()[5]) for line in file if not line.startswith("#") ]
-            )
-        qual_cutoff = numpy.percentile(quals,perc)
-        return qual_cutoff 
-
 
     def process(self,vcf_file):
         ''' This method performs the filtering. It assumes you set up the filters ahead of time '''
@@ -134,6 +125,16 @@ class VCFFilter(object):
         self.log("Found {} variants in union file".format(num_vars_seen))
         self.union_positions = positions
 
+    def get_percentile_cutoff(self,vcf_file,perc):
+        ''' Return the field cutoff for a specific field cutoff ''' 
+        with open(vcf_file,'r') as file:
+            quals = numpy.array(
+                [float(line.split()[5]) for line in file if not line.startswith("#") ]
+            )
+        qual_cutoff = numpy.percentile(quals,perc)
+        return qual_cutoff 
+
+
     def populate_map(self,map_file):
         positions = defaultdict(list)
         with open(map_file,'r') as file:
@@ -162,21 +163,7 @@ class VCFFilter(object):
         else:
             return False
 
-#   def populate_within(self,vcf_file):
-#       self.within = []
-#       with open(vcf_file,'r') as file:
-#           for line_num,line in enumerate(file):
-#               if line.startswith('#'):
-#                   continue
-#               else:
-#                   fields = line.strip().split()
-#                   if self.verbose and line_num % 1000000 == 0:
-#                       self.log("Populating within line: {}".format(line_num))
-#                   self.within.append({
-#                       'chr'  : fields[0],
-#                       'pos'  : int(fields[1]),
-#                   })
-#                   
+    # IO Methods
     def log(self,*args):
         print(time.ctime(),' - ',*args,file=self.log_file)
 
@@ -199,6 +186,7 @@ class VCFFilter(object):
 
 def main(argv):
     parser = OptionParser()
+    # General Options/Filters
     parser.add_option("--filter",default=None, type=str,help="filter out variants that do not match based on FILTER field, e.g. LowQual")
     parser.add_option("--field", default=None, type=str, help="Used with percentile or threshold arguments to filter out based on a FIELD arg")
     parser.add_option("--qual", action="store_true", default=None, help="Used with percentile or threshold arguments to filter out based on a QUAL arg")
@@ -207,8 +195,11 @@ def main(argv):
     parser.add_option('--skip_chrom',action="append",type=str,help="Skip variants on chroms. Can be specified multiple times")
     parser.add_option('--keep_chrom',action="append",type=str,help="keep variants on chroms. Can be specified multiple times")
     parser.add_option('--num_call_sets',type=float,help="the minimum number of call sets a variant must be called in")
-    parser.add_option('--not_within',type=int,default=None,help="the variant is not within X base pairs to another variant, if so, both get filtered")
     parser.add_option('--allelic',type=int,default=None,help="Filter out variants which have more alleles than X")
+    # Options that are are proximal
+    parser.add_option('--window_size',type=int,default=None,help="Comparison window in base pairs.")
+    parser.add_option('--max_ld',type=float,default=None,help="Max linkage disequilibrium allowed within a window.")
+    parser.add_option('--not_within',type=int,default=None,help="the variant is not within X base pairs to another variant, if so, both get filtered")
     # Options that require extraneous files
     parser.add_option('--repetitive',type=str,help="Filters out variants in repetitive regions. Supply a three columned file with chr,start,end regions")
     parser.add_option('--map_file',type=str,default=None,help="Only include snps in Plink map file")
@@ -217,7 +208,6 @@ def main(argv):
     # Options related to output and formatting
     parser.add_option("--verbose", default = False, action="store_true",help="how much do you want to know?")
     parser.add_option('--emit',type=str,default="all",help="Controls which variants to print out. One of all, pass, or filtered")
-    #parser.add_option('--inline',action="store_true",default=False,help="Modify the VCF inline")
     
     parser.add_option("-o",'--out', default=sys.stdout )
     options, args = parser.parse_args(argv) 
@@ -274,7 +264,6 @@ def main(argv):
     for filename in args:
         # Check if we are filtering proximity:
         if options.not_within:
-            flt.populate_within(filename)
             flt.not_within = options.not_within
         flt.process(filename)
     if flt.verbose:
