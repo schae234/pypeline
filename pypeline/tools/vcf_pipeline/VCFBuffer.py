@@ -41,6 +41,9 @@ class Variant(VCF):
     def genotypes(self):
         pass
 
+    def __getitem__(self,key):
+        return self.fields[key]
+
     def __str__(self):
         return '[{},{},{}...]'.format(self.chrom,self.pos,self.id)
 
