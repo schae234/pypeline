@@ -2,9 +2,48 @@
 
 import sys
 
-class Variant(object):
-    def __init__(self,line):
+class VCF(object):
+    def __init__(self,filename):
         pass
+
+class Genotype(object):
+    def __init__(self):
+        pass
+
+class Variant(VCF):
+    def __init__(self,fields):
+        self.fields = fields
+    @property
+    def chrom(self):
+        return self.fields[0]
+    @property
+    def pos(self):
+        return int(self.fields[1])
+    @property
+    def id(self):
+        return self.fields[2]
+    @property
+    def ref(self):
+        return self.fields[3]
+    @property
+    def alt(self):
+        return self.fields[4]
+    @property
+    def qual(self):
+        return float(self.fields[5])
+    @property
+    def filters(self):
+        return(self.fields[6].split(';'))
+    def info(self,ID):
+        pass
+    def format(self,ID):
+        pass
+    def genotypes(self):
+        pass
+
+    def __str__(self):
+        return '[{},{},{}...]'.format(self.chrom,self.pos,self.id)
+
 
 class VCFBuffer(object):
     ''' 
@@ -38,7 +77,10 @@ class VCFBuffer(object):
         while line.startswith('#'):
             self.header_buffer.append(line)
             line = self.file.readline().strip() 
-        return line.split() 
+        if line == '':
+            return []
+        else:
+            return Variant(line.split())
  
     # Buffer Full functions
     def max_size(self,stream):
@@ -57,12 +99,12 @@ class VCFBuffer(object):
     def max_window(self,stream):
         ''' The buffer contains a maximum number of SNPs within a window ''' 
         if stream == 'downstream':
-            if self.staged != [] and abs(int(self.staged[1])-int(self.buffer[self.current][1])) <= self.window_size:
+            if self.staged != [] and abs(self.staged.pos - self.buffer[self.current].pos) <= self.window_size:
                 return False
             else:
                 return True
         if stream == 'upstream':
-            if abs(int(self.buffer[0][1])-int(self.buffer[self.current][1])) > self.window_size:
+            if abs(self.buffer[0].pos - self.buffer[self.current].pos) > self.window_size:
                 return False
             else:
                 return True
@@ -112,9 +154,11 @@ class VCFBuffer(object):
         s = '''Buffer:\n-------\n'''
         for x,y in enumerate(self.buffer):
             if x == self.current:
-                s+=str(self.buffer[x][0:3])+"<-- Current\n"
+                s+=str(y)+"<-- Current\n"
             else:
-                s+=str(self.buffer[x][0:3])+"\n"
-        s+='''Staged:\n-------\n{}'''.format(self.staged[0:3])
+                s+=str(y)+"\n"
+        s+='''Staged:\n-------\n{}'''.format(str(self.staged))
         return s
+    def __repr__(self):
+        return self.__str__()
  
