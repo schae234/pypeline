@@ -37,74 +37,79 @@ class VCFFilter(object):
         self.num_repeat = 0
         self.num_field = 0
         self.buffer = None
+        self.start_time = time.ctime() 
 
 
-
+    
     def process(self,vcf_file):
         ''' This method performs the filtering. It assumes you set up the filters ahead of time '''
+        self.log("Processing: {}".format(vcf_file))
         # Filter the vcf file
-        self.buffer = VCFBuffer(vcf_file)
+        self.Varbuffer = VCFBuffer(vcf_file)
         # Print the varaint buffer   
-        print(self.buffer.header(),file=self.out)
-        for variant in self.buffer:
+        print(self.Varbuffer.header(),file=self.out)
+        for ln,variant in enumerate(self.Varbuffer):
+            if ln % 100000 == 0:
+                self.log("\tprocessing variant: {}".format(ln))
             self.filter_by_property(variant)
-            self.filter_by_proximity(self.buffer)
+            self.filter_by_proximity(self.Varbuffer)
             self.emit(variant)
                 
-    def filter_by_proximity(self,buffer):           
-        fields = buffer.current[0]
-        if self.within :
-            if len(buffer.upstream) == 0:
-                upstream = 'Inf'
+    def filter_by_proximity(self,Varbuffer):           
+        variant = Varbuffer.buffer[Varbuffer.current]
+        if self.not_within:
+            if Varbuffer.current == 0:
+                upstream = float('Inf')
             else:
-                upstream = buffer.upstream[-1][1]
-            if len(buffer.downstream) == 0 or not buffer.downstream[0]: 
-                downstream = 'Inf'
+                upstream = Varbuffer.buffer[Varbuffer.current-1].pos
+            if Varbuffer.buffer[Varbuffer.current+1] == []: 
+                downstream = float('Inf')
             else:
-                downstream = buffer.downstream[0][1]
-            if (abs(float(fields[1]) - float(upstream)  )<= self.not_within 
-            or  abs(float(fields[1]) - float(downstream))<= self.not_within):
-                fields[6] += ";WITHIN"
+                downstream = Varbuffer.buffer[Varbuffer.current+1].pos
+            if ( abs(variant.pos - upstream )<= self.not_within 
+              or abs(variant.pos - downstream)<= self.not_within):
+                variant.add_filter("WITHIN")
                 self.num_within += 1
 
      
-    def filter_by_property(self,fields):
+    def filter_by_property(self,variant):
         ''' Filter variant due to certain properties '''
-        if self.allelic and len(fields[4].split(',')) >= self.allelic:
-            fields[6] += ";ALLELIC"
+        if self.allelic and len(variant.alt.split(',')) >= self.allelic:
+            variant.add_filter("ALLELIC")
             self.num_allelic += 1
             return
-        if self.skip_chroms and fields[0] in self.skip_chroms:
-            fields[6] += ";SKIP_CHROM"
-        if self.keep_chroms and fields[0] not in self.keep_chroms:
-            fields[6] += ";NOT_KEEP_CHROM"
-        if self.qual and float(fields[5]) < self.thresh:
-            fields[6] += ";LOW_QUAL_THRESH"
+        if self.skip_chroms and variant.chrom in self.skip_chroms:
+            variant.add_filter("SKIP_CHROM")
+        if self.keep_chroms and variant.chrom not in self.keep_chroms:
+            variant.add_filter("NOT_KEEP_CHROM")
+        if self.qual and variant.qual < self.thresh:
+            variant.add_filter("LOW_QUAL_THRESH")
         if self.field and self.thresh:
-            field = re.search(str(';?'+self.field+'=([^;]*)(;?)'),fields[7])
-            if field == None:
-                fields[6] += ";NO_FIELD"
-                self.log("No {} field for variant {} {}".format(self.field,fields[0],fields[1]))
-            else:
-                if float(field.group(1)) < self.thresh:
-                    fields[6] += ";LOW_"+self.field.upper()
+            try:
+                if float(variant.info[self.field]) < self.thresh:
+                    variant.add_filter("LOW_"+self.field.upper())
                     self.num_field += 1
-        if self.repeats and self.in_repeat_region(fields[0],int(fields[1])):
-            fields[6] += ";REPEAT"
+            except Exception,e: 
+                variant.add_filter("NO_FIELD")
+                self.log("No {} field for variant {} {}".format(
+                    self.field,variant.chrom,variant.pos
+                ))
+        if self.repeats and self.in_repeat_region(variant.chrom,variant.pos):
+            variant.add_filter("REPEAT")
             self.num_repeat += 1
-        if self.union_positions and int(fields[1]) not in self.union_positions[fields[0]]:
-            fields[6] += ";NON_INTERSECT"
-        if self.map_positions and int(fields[1]) not in self.map_positions[fields[0]]:
-            fields[6] += ";MAP"
+        if self.union_positions and variant.pos not in self.union_positions[variant.chrom]:
+            variant.add_filter("NON_INTERSECT")
+        if self.map_positions and variant.pos not in self.map_positions[variant.chrom]:
+            variant.add_filter("MAP")
         if self.num_call_sets:
-            sets = re.search(';?set=([^;]*)(;?)',fields[7])
-            if sets == None:
+            try:
+                sets = variant.info['set'].split('-')
+                if len(sets) < self.num_call_sets or 'FilteredInAll' in sets:
+                    variant.add_filter("LOW_CALL_SET")
+            except Exception,e:
                 self.log("No set found for {} {}".format(fields[0],fields[1]))
-            else:
-                if len(sets.group(1).split('-')) < self.num_call_sets or sets.group(1) == 'FilteredInAll':
-                    fields[6] += ";LOW_CALL_SET"
-        if fields[6] == '.':
-            fields[6] = "PASS"
+        if variant.filters == '.':
+            variant.filters = "PASS"
 
 
     def populate_intersect(self,vcf_file):
@@ -148,6 +153,7 @@ class VCFFilter(object):
         self.map_positions = positions
     
     def populate_repeat(self,repeat_file):
+        self.log("Reading in repeat file: {}".format(repeat_file))
         ranges = defaultdict(lambda: defaultdict(list))
         with open(repeat_file,'r') as file:
             for line in file:
@@ -167,12 +173,12 @@ class VCFFilter(object):
     def log(self,*args):
         print(time.ctime(),' - ',*args,file=self.log_file)
 
-    def emit(self,fields):
-        if self.emit_type == 'pass' and fields[6] != "PASS" and fields[6] != '.':
+    def emit(self,variant):
+        if self.emit_type == 'pass' and (len(variant.filters) > 1 or 'PASS' not in variant.filters):
             return None
         elif self.emit_type == 'filtered' and (fields == 'PASS' or fields[6] == '.'):
             return None
-        print("\t".join(fields),file=self.out)
+        print(variant,file=self.out)
             
     def filter_totals(self):
         self.log(''' 
@@ -272,3 +278,8 @@ def main(argv):
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv[1:]))
+
+
+
+
+

@@ -118,6 +118,21 @@ class ApplyRecalibrationNode(CommandNode):
             dependencies = parameters.dependencies
         )
 
+class VariantVCFToolsNode(CommandNode):
+    @create_customizable_cli_parameters
+    def customize(cls,infile,outfile,options,dependencies= ()):
+        vcftools = AtomicCmdBuilder(['vcftools']
+            IN_VCF = infile
+            OUT_VCF = outfile
+        )
+        vcftools.set_option('--vcf','%(IN_VCF)s')
+        vcftools.set_option('--out','%(OUT_VCF)s')
+    
+
+    @use_customizable_cli_parameters
+    def __init__(self,parameters):
+        pass
+
 class VariantFilterNode(CommandNode):
     @create_customizable_cli_parameters
     def customize(cls, reference, infile, outfile, filters, options, dependencies = ()):
@@ -280,6 +295,20 @@ class VariantMergeNode(CommandNode):
                              command      = ParallelCmds(commands),
                              dependencies = parameters.dependencies)
 
+#class VariantAnnotateNode(CommandNode):
+#   @create_customizable_cli_parameters
+#   def customize(cls,infile,outfile,bam_list,referecnce,options,dependencies = ()):
+#       jar_file = os.path.join(options.jar_root,"GenomeAnalysisTK-2.8-1.jar")
+#       annotate = AtomicJava7CmdBuilder(options,jar_file,
+#           IN_REFERENCE = reference,
+#           OUT_ANNOTATED = os.path.join(outfile),
+#           OUT_IDX = os.path.join(outfile+".idx")
+#       )
+#       annotate.add_option('-T','VariantAnnotator')
+#       annotate.add_option('-R','%(IN_REFERENCE)s')
+#       annotate.add_option('-nt','4')
+
+
 
 class VariantNode(CommandNode):
     @create_customizable_cli_parameters
@@ -431,6 +460,20 @@ def build_merge_node(groups,prefix,options,dependencies = ()):
         dependencies = dependencies
     )
     intersect_merge = intersect_merge.build_node()
+
+
+#   annotate_merged = VariantAnnotateNode.customize(
+#       infile = os.path.join(options.makefile['OutDir'],
+#           "MERGED.{}.vcf".format(prefix['Label'])
+#       ),
+#       outfile = os.path.join(options.makefile['OutDir'],
+#           "MERGED.{}.annotated.vcf".format(prefix['Label'])
+#       ),
+#       reference = prefix['Path'], 
+#       options = options, 
+#       dependencies = dependencies
+#   )
+#   annotate_merged = annotate_merged.build_node()
 
 #   intersect_qual = VariantFilterNode.customize(
 #    reference = prefix['Path'],
