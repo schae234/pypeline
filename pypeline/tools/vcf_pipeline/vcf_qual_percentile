@@ -31,11 +31,14 @@ class VCFFilter(object):
         # VCF Position paramaters
         self.within = None
         self.not_within = None
+        self.max_ld = None
+        self.ld = None
         # Set counters
         self.num_within = 0
         self.num_allelic = 0
         self.num_repeat = 0
         self.num_field = 0
+        self.num_ld = 0
         self.buffer = None
         self.start_time = time.ctime() 
 
@@ -70,6 +73,10 @@ class VCFFilter(object):
               or abs(variant.pos - downstream)<= self.not_within):
                 variant.add_filter("WITHIN")
                 self.num_within += 1
+        if self.ld:
+            if variant.pos in self.ld[variant.chr]:
+                variant.add_filter("MAX_LD")
+                self.num_ld += 1
 
      
     def filter_by_property(self,variant):
@@ -170,6 +177,22 @@ class VCFFilter(object):
         else:
             return False
 
+    def populate_ld(self,ld_file):
+        '''Processes pairwise ld file produced by vcftools'''
+        self.log("Reading in LD File")
+        self.ld = defaultdict(lambda:defaultdict(lambda: defaultdict(int)))
+        cur_chrom = None
+        with open(ld_file,'r') as file:
+            header = line.readline()
+            for line in file:
+                chr,pos1,pos2,n_ind,r2 = line.strip.split()
+                if float(r2) >= self.max_ld:
+                    self.ld[chr][int(pos1)][int(pos2)] = float(r2)
+                    self.ld[chr][int(pos2)][int(pos1)] = float(r2)
+                if chr != cur_chrom:
+                    self.log("\tprocessing chromosome {}",chr)
+                    chr = cur_chrom
+
     # IO Methods
     def log(self,*args):
         print(time.ctime(),' - ',*args,file=self.log_file)
@@ -212,6 +235,7 @@ def main(argv):
     parser.add_option('--map_file',type=str,default=None,help="Only include snps in Plink map file")
     parser.add_option("--intersect_vcf", default = None, type=str, help="Only match variants within another vcf")
     parser.add_option("--exclude_vcf",default=None, type=str,help="Only match variants not within another vcf")
+    parser.add_option("--ld_file",default = None, type=str, help="A file containing LD measurements produced by vcftools, 5 cols: chr, pos1, pos2, #indivs, r^2"
     # Options related to output and formatting
     parser.add_option("--verbose", default = False, action="store_true",help="how much do you want to know?")
     parser.add_option('--emit',type=str,default="all",help="Controls which variants to print out. One of all, pass, or filtered")
@@ -266,6 +290,12 @@ def main(argv):
         flt.filter = options.filter
     if options.allelic:
         flt.allelic = options.allelic
+    # Check for LD based filters
+    if options.ld_file:
+        if not options.max_ld:
+            exit("--ld_file option requires --max_ld parameter")
+        flt.max_ld = options.max_ld
+        flt.populate_ld(options.ld_file)
 
     # Process input files
     for filename in args:
