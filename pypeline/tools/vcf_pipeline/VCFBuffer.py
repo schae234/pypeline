@@ -19,9 +19,7 @@ class Genotype(object):
 
     def __str__(self):
         return ":".join(self.__dict__.itervalues())
-    
-    def __repr__(self):
-        return "Noo"
+
 
 class Variant(VCF):
     def __init__(self,fields):
@@ -34,7 +32,8 @@ class Variant(VCF):
         self.filters = fields[6].split(';')
         self.info  = self.process_info(fields[7].split(';'))
         self.format = fields[8].split(':')
-        self.genotypes = self.process_genotypes(fields[9:])
+        #self.genotypes = self.process_genotypes(fields[9:])
+        self.genotypes = fields[9:]
 
     def add_filter(self,filter):
         self.filters.append(str(filter))

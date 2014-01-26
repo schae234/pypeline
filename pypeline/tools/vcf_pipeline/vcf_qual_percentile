@@ -85,15 +85,16 @@ class VCFFilter(object):
         if self.qual and variant.qual < self.thresh:
             variant.add_filter("LOW_QUAL_THRESH")
         if self.field and self.thresh:
-            try:
-                if float(variant.info[self.field]) < self.thresh:
-                    variant.add_filter("LOW_"+self.field.upper())
-                    self.num_field += 1
-            except Exception,e: 
-                variant.add_filter("NO_FIELD")
-                self.log("No {} field for variant {} {}".format(
-                    self.field,variant.chrom,variant.pos
-                ))
+            for i,field in enumerate(self.field):
+                try:
+                    if float(variant.info[field]) < self.thresh[i]:
+                        variant.add_filter("LOW_"+field.upper())
+                        self.num_field += 1
+                except Exception,e: 
+                    variant.add_filter("NO_FIELD"+field.upper())
+                    #self.log("No {} field for variant {} {}".format(
+                    #    field,variant.chrom,variant.pos
+                    #))
         if self.repeats and self.in_repeat_region(variant.chrom,variant.pos):
             variant.add_filter("REPEAT")
             self.num_repeat += 1
@@ -194,9 +195,9 @@ def main(argv):
     parser = OptionParser()
     # General Options/Filters
     parser.add_option("--filter",default=None, type=str,help="filter out variants that do not match based on FILTER field, e.g. LowQual")
-    parser.add_option("--field", default=None, type=str, help="Used with percentile or threshold arguments to filter out based on a FIELD arg")
+    parser.add_option("--field", default=None, type=str, action="append",help="Used with percentile or threshold arguments to filter out based on a FIELD arg")
     parser.add_option("--qual", action="store_true", default=None, help="Used with percentile or threshold arguments to filter out based on a QUAL arg")
-    parser.add_option("--thresh", default=None,type=float,help='filter out --field values under this threshold')
+    parser.add_option("--thresh", default=None,type=float,action="append",help='filter out --field values under this threshold')
     parser.add_option("--percentile", default = None, type = int,help="filter out --field values under this percentile")
     parser.add_option('--skip_chrom',action="append",type=str,help="Skip variants on chroms. Can be specified multiple times")
     parser.add_option('--keep_chrom',action="append",type=str,help="keep variants on chroms. Can be specified multiple times")

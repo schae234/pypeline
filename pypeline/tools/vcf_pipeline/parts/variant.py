@@ -176,7 +176,7 @@ class VariantRecalibratorNode(CommandNode):
                 ),
                 '%(IN_REC{})s'.format(i)
             )
-        #VariantRecal.add_option("-an","DP")
+        VariantRecal.add_option("-an","DP")
         VariantRecal.add_option("-an","QD")
         VariantRecal.add_option("-an","FS")
         VariantRecal.add_option("-an","MQRankSum")
@@ -357,15 +357,6 @@ class VariantNode(CommandNode):
                              command      = ParallelCmds(commands),
                              dependencies = parameters.dependencies)
 
-def PRNode(CommandNode):
-    @create_customizable_cli_parameters
-    def customize(cls,final_report,map_file,options, dependencies=()):
-        pass
-
-    @use_customizable_cli_parameters
-    def __init__(self,parameters):
-        pass
-        
 
 def build_variant_nodes(options,reference, group, dependencies = ()):
     gatk_outfile = os.path.join(
