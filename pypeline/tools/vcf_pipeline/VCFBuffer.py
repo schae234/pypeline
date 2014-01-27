@@ -82,12 +82,12 @@ class VCFBuffer(object):
         '''
 
 
-    def __init__(self,filename,buffer_function = 'max_size'):
+    def __init__(self,filename,buffer_function = 'max_size',buffer_size = 10):
         # Set up the buffer clearing function
         self.is_buffer_full = getattr(self,buffer_function)
         # Set up class variable
-        self.max_buffer_size = 3
-        self.window_size = 10 # in bp
+        self.max_buffer_size = buffer_size # in variants
+        self.window_size = buffer_size # in bp
         # Set up class data structures
         self.header_buffer = []
         self.buffer = []

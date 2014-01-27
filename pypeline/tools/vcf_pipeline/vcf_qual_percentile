@@ -29,6 +29,8 @@ class VCFFilter(object):
         self.allelic = None
         self.emit_type = "all"
         # VCF Position paramaters
+        self.buffer_function = "max_size"
+        self.buffer_size = 10
         self.within = None
         self.not_within = None
         self.max_ld = None
@@ -48,7 +50,7 @@ class VCFFilter(object):
         ''' This method performs the filtering. It assumes you set up the filters ahead of time '''
         self.log("Processing: {}".format(vcf_file))
         # Filter the vcf file
-        self.Varbuffer = VCFBuffer(vcf_file)
+        self.Varbuffer = VCFBuffer(vcf_file,self.buffer_function,self.buffer_size)
         # Print the varaint buffer   
         print(self.Varbuffer.header(),file=self.out)
         for ln,variant in enumerate(self.Varbuffer):
@@ -65,7 +67,8 @@ class VCFFilter(object):
                 upstream = float('Inf')
             else:
                 upstream = Varbuffer.buffer[Varbuffer.current-1].pos
-            if Varbuffer.buffer[Varbuffer.current+1] == []: 
+            if (len(Varbuffer.buffer) == Varbuffer.current+1
+                or Varbuffer.buffer[Varbuffer.current+1] == []): 
                 downstream = float('Inf')
             else:
                 downstream = Varbuffer.buffer[Varbuffer.current+1].pos
@@ -74,9 +77,21 @@ class VCFFilter(object):
                 variant.add_filter("WITHIN")
                 self.num_within += 1
         if self.ld:
-            if variant.pos in self.ld[variant.chr]:
-                variant.add_filter("MAX_LD")
-                self.num_ld += 1
+            if variant.pos in self.ld[variant.chrom] and "MAX_LD" not in variant.filters:
+                # if in LD, we want to filter further
+                # Get the variant in ld
+                in_ld = self.ld[variant.chrom][variant.pos].keys()
+                buff_pos = map(lambda x: x.pos, self.Varbuffer.buffer)
+                ld_ind = [ buff_pos.index(x) for x in buff_pos if x in in_ld ]
+                ld_VQSLOD = [ self.Varbuffer.buffer[x].info['VQSLOD'] for x in ld_ind ]
+                ld_sets = [self.Varbuffer.buffer[x].info['set'] for x in ld_ind ]
+                # If the current variant has a bigger VQSLOD than all ld 
+                if all([variant.info["VQSLOD"] > x for x in ld_VQSLOD]):
+                    # Add filter to all ld variants
+                    [ self.Varbuffer.buffer[x].add_filter("MAX_LD") for x in ld_ind ]
+                else:
+                    variant.add_filter("MAX_LD")
+                    self.num_ld += 1
 
      
     def filter_by_property(self,variant):
@@ -183,15 +198,16 @@ class VCFFilter(object):
         self.ld = defaultdict(lambda:defaultdict(lambda: defaultdict(int)))
         cur_chrom = None
         with open(ld_file,'r') as file:
-            header = line.readline()
+            header = file.readline()
             for line in file:
-                chr,pos1,pos2,n_ind,r2 = line.strip.split()
-                if float(r2) >= self.max_ld:
-                    self.ld[chr][int(pos1)][int(pos2)] = float(r2)
-                    self.ld[chr][int(pos2)][int(pos1)] = float(r2)
+                chr,pos1,pos2,n_ind,r2 = line.strip().split()
+                if float(r2) >= self.max_ld and int(n_ind) > 3:
+                    # we only store the top half of the matrix
+                    self.ld[chr][int(pos1)][int(pos2)] = (int(n_ind),float(r2))
+                    #self.ld[chr][int(pos2)][int(pos1)] = (int(n_ind),float(r2))
                 if chr != cur_chrom:
-                    self.log("\tprocessing chromosome {}",chr)
-                    chr = cur_chrom
+                    self.log("\tprocessing chromosome {}".format(chr))
+                    cur_chrom = chr
 
     # IO Methods
     def log(self,*args):
@@ -211,7 +227,8 @@ class VCFFilter(object):
             allelic {}
             repeat {}
             field {}
-        '''.format(self.num_within,self.num_allelic,self.num_repeat,self.num_field)) 
+            ld {}
+        '''.format(self.num_within,self.num_allelic,self.num_repeat,self.num_field,self.num_ld)) 
 
 
 def main(argv):
@@ -227,7 +244,8 @@ def main(argv):
     parser.add_option('--num_call_sets',type=float,help="the minimum number of call sets a variant must be called in")
     parser.add_option('--allelic',type=int,default=None,help="Filter out variants which have more alleles than X")
     # Options that are are proximal
-    parser.add_option('--window_size',type=int,default=None,help="Comparison window in base pairs.")
+    parser.add_option('--buffer_function',type=str,default=None,help="Determines how program will buffer proximal variants, choose max_size or max_window")
+    parser.add_option('--buffer_size',type=int,default=None,help="Comparison window in base pairs.")
     parser.add_option('--max_ld',type=float,default=None,help="Max linkage disequilibrium allowed within a window.")
     parser.add_option('--not_within',type=int,default=None,help="the variant is not within X base pairs to another variant, if so, both get filtered")
     # Options that require extraneous files
@@ -235,7 +253,7 @@ def main(argv):
     parser.add_option('--map_file',type=str,default=None,help="Only include snps in Plink map file")
     parser.add_option("--intersect_vcf", default = None, type=str, help="Only match variants within another vcf")
     parser.add_option("--exclude_vcf",default=None, type=str,help="Only match variants not within another vcf")
-    parser.add_option("--ld_file",default = None, type=str, help="A file containing LD measurements produced by vcftools, 5 cols: chr, pos1, pos2, #indivs, r^2"
+    parser.add_option("--ld_file",default = None, type=str, help="A file containing LD measurements produced by vcftools, 5 cols: chr, pos1, pos2, #indivs, r^2")
     # Options related to output and formatting
     parser.add_option("--verbose", default = False, action="store_true",help="how much do you want to know?")
     parser.add_option('--emit',type=str,default="all",help="Controls which variants to print out. One of all, pass, or filtered")
@@ -247,6 +265,11 @@ def main(argv):
     flt = VCFFilter()
     flt.emit_type = options.emit
     flt.verbose = options.verbose
+    if options.buffer_function:
+        if not options.buffer_size:
+            exit('--buffer_function requires --buffer_size')
+        flt.buffer_function = options.buffer_function
+        flt.buffer_size = options.buffer_size
     # Check to see if we are performing proximity checks
     flt.log("Starting Analysis...")
     # Check to see if we are performing union checks
