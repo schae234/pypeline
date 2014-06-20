@@ -5,8 +5,11 @@ import os
 import sys
 import numpy
 import re
+import bisect
+import time
 from optparse import OptionParser
 from collections import defaultdict
+from pypeline.tools.vcf_pipeline.VCFBuffer import VCFBuffer
 
 
 class VCFFilter(object):
@@ -20,59 +23,117 @@ class VCFFilter(object):
         self.out = sys.stdout
         self.log_file = sys.stderr
         self.skip_chroms = None
+        self.keep_chroms = None
         self.num_call_sets = None
-        self.filter = None
+        self.repeats = None
+        self.allelic = None
+        self.emit_type = "all"
+        # VCF Position paramaters
+        self.buffer_function = "max_size"
+        self.buffer_size = 10
+        self.within = None
+        self.not_within = None
+        self.max_ld = None
+        self.ld = None
+        # Set counters
+        self.num_within = 0
+        self.num_allelic = 0
+        self.num_repeat = 0
+        self.num_field = 0
+        self.num_ld = 0
+        self.buffer = None
+        self.start_time = time.ctime() 
 
-    def get_percentile_cutoff(self,vcf_file,perc):
-        ''' Return the field cutoff for a specific field cutoff ''' 
-        with open(vcf_file,'r') as file:
-            quals = numpy.array(
-                [float(line.split()[5]) for line in file if not line.startswith("#") ]
-            )
-        qual_cutoff = numpy.percentile(quals,perc)
-        return qual_cutoff 
 
+    
     def process(self,vcf_file):
         ''' This method performs the filtering. It assumes you set up the filters ahead of time '''
+        self.log("Processing: {}".format(vcf_file))
         # Filter the vcf file
-        with open(vcf_file,'r') as invcf:
-            for line in invcf:
-                if line.startswith('#'):
-                    fields = line.split()
-                    self.indivs = fields[9:]
-                    # headers always get printed
-                    print(line,file=self.out,end="")
+        self.Varbuffer = VCFBuffer(vcf_file,self.buffer_function,self.buffer_size)
+        # Print the varaint buffer   
+        print(self.Varbuffer.header(),file=self.out)
+        for ln,variant in enumerate(self.Varbuffer):
+            if ln % 100000 == 0:
+                self.log("\tprocessing variant: {}".format(ln))
+            self.filter_by_property(variant)
+            self.filter_by_proximity(self.Varbuffer)
+            self.emit(variant)
+                
+    def filter_by_proximity(self,Varbuffer):           
+        variant = Varbuffer.buffer[Varbuffer.current]
+        if self.not_within:
+            if Varbuffer.current == 0:
+                upstream = float('Inf')
+            else:
+                upstream = Varbuffer.buffer[Varbuffer.current-1].pos
+            if (len(Varbuffer.buffer) == Varbuffer.current+1
+                or Varbuffer.buffer[Varbuffer.current+1] == []): 
+                downstream = float('Inf')
+            else:
+                downstream = Varbuffer.buffer[Varbuffer.current+1].pos
+            if ( abs(variant.pos - upstream )<= self.not_within 
+              or abs(variant.pos - downstream)<= self.not_within):
+                variant.add_filter("WITHIN")
+                self.num_within += 1
+        if self.ld:
+            if variant.pos in self.ld[variant.chrom] and "MAX_LD" not in variant.filters:
+                # if in LD, we want to filter further
+                # Get the variant in ld
+                in_ld = self.ld[variant.chrom][variant.pos].keys()
+                buff_pos = map(lambda x: x.pos, self.Varbuffer.buffer)
+                ld_ind = [ buff_pos.index(x) for x in buff_pos if x in in_ld ]
+                ld_VQSLOD = [ self.Varbuffer.buffer[x].info['VQSLOD'] for x in ld_ind ]
+                ld_sets = [self.Varbuffer.buffer[x].info['set'] for x in ld_ind ]
+                # If the current variant has a bigger VQSLOD than all ld 
+                if all([variant.info["VQSLOD"] > x for x in ld_VQSLOD]):
+                    # Add filter to all ld variants
+                    [ self.Varbuffer.buffer[x].add_filter("MAX_LD") for x in ld_ind ]
                 else:
-                    fields = line.split()
-                    # for now slip tri-allelic snps:
-                    if ',' in fields[4]:
-                        continue
-                    if self.skip_chroms and fields[0] in self.skip_chroms:
-                        continue 
-                    if self.qual and float(fields[5]) < self.thresh:
-                        continue
-                    if self.field and self.thresh:
-                        field = re.search(str(';?'+self.field+'=([^;]*)(;?)'),fields[7])
-                        if field == None:
-                            self.log("No {} field for variant {} {}".format(self.field,fields[0],fields[1]))
-                        else:
-                            if float(field.group(1)) < self.thresh:
-                                continue
-                    if self.union_positions and int(fields[1]) not in self.union_positions[fields[0]]:
-                        continue
-                    if self.map_positions and int(fields[1]) not in self.map_positions[fields[0]]:
-                        continue
-                    if self.num_call_sets:
-                        sets = re.search(';?set=([^;]*)(;?)',fields[7])
-                        if sets == None:
-                            self.log("No set found for {} {}".format(fields[0],fields[1]))
-                        else:
-                            if len(sets.group(1).split('-')) < self.num_call_sets or sets.group(1) == 'FilteredInAll':
-                                continue
-                    if self.filter and not re.match(self.filter,fields[6]):
-                        continue
-        
-                    print(line, file=self.out ,end="")
+                    variant.add_filter("MAX_LD")
+                    self.num_ld += 1
+
+     
+    def filter_by_property(self,variant):
+        ''' Filter variant due to certain properties '''
+        if self.allelic and len(variant.alt.split(',')) >= self.allelic:
+            variant.add_filter("ALLELIC")
+            self.num_allelic += 1
+            return
+        if self.skip_chroms and variant.chrom in self.skip_chroms:
+            variant.add_filter("SKIP_CHROM")
+        if self.keep_chroms and variant.chrom not in self.keep_chroms:
+            variant.add_filter("NOT_KEEP_CHROM")
+        if self.qual and variant.qual < self.thresh:
+            variant.add_filter("LOW_QUAL_THRESH")
+        if self.field and self.thresh:
+            for i,field in enumerate(self.field):
+                try:
+                    if float(variant.info[field]) < self.thresh[i]:
+                        variant.add_filter("LOW_"+field.upper())
+                        self.num_field += 1
+                except Exception,e: 
+                    variant.add_filter("NO_FIELD"+field.upper())
+                    #self.log("No {} field for variant {} {}".format(
+                    #    field,variant.chrom,variant.pos
+                    #))
+        if self.repeats and self.in_repeat_region(variant.chrom,variant.pos):
+            variant.add_filter("REPEAT")
+            self.num_repeat += 1
+        if self.union_positions and variant.pos not in self.union_positions[variant.chrom]:
+            variant.add_filter("NON_INTERSECT")
+        if self.map_positions and variant.pos not in self.map_positions[variant.chrom]:
+            variant.add_filter("MAP")
+        if self.num_call_sets:
+            try:
+                sets = variant.info['set'].split('-')
+                if len(sets) < self.num_call_sets or 'FilteredInAll' in sets:
+                    variant.add_filter("LOW_CALL_SET")
+            except Exception,e:
+                self.log("No set found for {} {}".format(fields[0],fields[1]))
+        if variant.filters == '.':
+            variant.filters = "PASS"
+
 
     def populate_intersect(self,vcf_file):
         self.log("Reading in union file: {}".format(vcf_file))
@@ -92,6 +153,16 @@ class VCFFilter(object):
         self.log("Found {} variants in union file".format(num_vars_seen))
         self.union_positions = positions
 
+    def get_percentile_cutoff(self,vcf_file,perc):
+        ''' Return the field cutoff for a specific field cutoff ''' 
+        with open(vcf_file,'r') as file:
+            quals = numpy.array(
+                [float(line.split()[5]) for line in file if not line.startswith("#") ]
+            )
+        qual_cutoff = numpy.percentile(quals,perc)
+        return qual_cutoff 
+
+
     def populate_map(self,map_file):
         positions = defaultdict(list)
         with open(map_file,'r') as file:
@@ -103,30 +174,103 @@ class VCFFilter(object):
             # covert to set for fast intersection checks
             positions[chr] = set(positions[chr])
         self.map_positions = positions
+    
+    def populate_repeat(self,repeat_file):
+        self.log("Reading in repeat file: {}".format(repeat_file))
+        ranges = defaultdict(lambda: defaultdict(list))
+        with open(repeat_file,'r') as file:
+            for line in file:
+                chr,start,end = line.strip().split() 
+                ranges[chr]['start'].append(int(start))
+                ranges[chr]['end'].append(int(end))
+        self.repeats = ranges
+    
+    def in_repeat_region(self,chrom,position):
+        index = min(bisect.bisect_left(self.repeats[chrom]['start'],position)-1,0)
+        if self.repeats[chrom]['start'][index] < position and self.repeats[chrom]['end'][index] > position:
+            return True
+        else:
+            return False
 
+    def populate_ld(self,ld_file):
+        '''Processes pairwise ld file produced by vcftools'''
+        self.log("Reading in LD File")
+        self.ld = defaultdict(lambda:defaultdict(lambda: defaultdict(int)))
+        cur_chrom = None
+        with open(ld_file,'r') as file:
+            header = file.readline()
+            for line in file:
+                chr,pos1,pos2,n_ind,r2 = line.strip().split()
+                if float(r2) >= self.max_ld and int(n_ind) > 3:
+                    # we only store the top half of the matrix
+                    self.ld[chr][int(pos1)][int(pos2)] = (int(n_ind),float(r2))
+                    #self.ld[chr][int(pos2)][int(pos1)] = (int(n_ind),float(r2))
+                if chr != cur_chrom:
+                    self.log("\tprocessing chromosome {}".format(chr))
+                    cur_chrom = chr
+
+    # IO Methods
     def log(self,*args):
-        print(*args,file=self.log_file)
+        print(time.ctime(),' - ',*args,file=self.log_file)
+
+    def emit(self,variant):
+        if self.emit_type == 'pass' and (len(variant.filters) > 1 or 'PASS' not in variant.filters):
+            return None
+        elif self.emit_type == 'filtered' and (fields == 'PASS' or fields[6] == '.'):
+            return None
+        print(variant,file=self.out)
+            
+    def filter_totals(self):
+        self.log(''' 
+            Filter totals:
+            within {}
+            allelic {}
+            repeat {}
+            field {}
+            ld {}
+        '''.format(self.num_within,self.num_allelic,self.num_repeat,self.num_field,self.num_ld)) 
 
 
 def main(argv):
     parser = OptionParser()
+    # General Options/Filters
+    parser.add_option("--filter",default=None, type=str,help="filter out variants that do not match based on FILTER field, e.g. LowQual")
+    parser.add_option("--field", default=None, type=str, action="append",help="Used with percentile or threshold arguments to filter out based on a FIELD arg")
+    parser.add_option("--qual", action="store_true", default=None, help="Used with percentile or threshold arguments to filter out based on a QUAL arg")
+    parser.add_option("--thresh", default=None,type=float,action="append",help='filter out --field values under this threshold')
+    parser.add_option("--percentile", default = None, type = int,help="filter out --field values under this percentile")
+    parser.add_option('--skip_chrom',action="append",type=str,help="Skip variants on chroms. Can be specified multiple times")
+    parser.add_option('--keep_chrom',action="append",type=str,help="keep variants on chroms. Can be specified multiple times")
+    parser.add_option('--num_call_sets',type=float,help="the minimum number of call sets a variant must be called in")
+    parser.add_option('--allelic',type=int,default=None,help="Filter out variants which have more alleles than X")
+    # Options that are are proximal
+    parser.add_option('--buffer_function',type=str,default=None,help="Determines how program will buffer proximal variants, choose max_size or max_window")
+    parser.add_option('--buffer_size',type=int,default=None,help="Comparison window in base pairs.")
+    parser.add_option('--max_ld',type=float,default=None,help="Max linkage disequilibrium allowed within a window.")
+    parser.add_option('--not_within',type=int,default=None,help="the variant is not within X base pairs to another variant, if so, both get filtered")
+    # Options that require extraneous files
+    parser.add_option('--repetitive',type=str,help="Filters out variants in repetitive regions. Supply a three columned file with chr,start,end regions")
+    parser.add_option('--map_file',type=str,default=None,help="Only include snps in Plink map file")
     parser.add_option("--intersect_vcf", default = None, type=str, help="Only match variants within another vcf")
     parser.add_option("--exclude_vcf",default=None, type=str,help="Only match variants not within another vcf")
-    parser.add_option("--filter",default=None, type=str,help="filter out variants that do not match based on FILTER field, e.g. LowQual")
-    parser.add_option("--field", default=None, type=str, help="Used with percentile or threshold arguments to filter out based on a FIELD arg")
-    parser.add_option("--qual", action="store_true", default=None, help="Used with percentile or threshold arguments to filter out based on a QUAL arg")
-    parser.add_option("--thresh", default=None,type=float,help='filter out --field values under this threshold')
-    parser.add_option("-p", "--percentile", default = None, type = int,help="filter out --field values under this percentile")
-    parser.add_option("-v", "--verbose", default = False, action="store_true",help="how much do you want to know?")
-    parser.add_option('--map_file',type=str,default=None,help="Only include snps in Plink map file")
-    parser.add_option('--skip_chrom',action="append",type=str,help="Skip variants on chroms. Can be specified multiple times")
-    parser.add_option('--num_call_sets',type=float,help="the minimum number of call sets a variant must be called in")
+    parser.add_option("--ld_file",default = None, type=str, help="A file containing LD measurements produced by vcftools, 5 cols: chr, pos1, pos2, #indivs, r^2")
+    # Options related to output and formatting
+    parser.add_option("--verbose", default = False, action="store_true",help="how much do you want to know?")
+    parser.add_option('--emit',type=str,default="all",help="Controls which variants to print out. One of all, pass, or filtered")
     
     parser.add_option("-o",'--out', default=sys.stdout )
     options, args = parser.parse_args(argv) 
 
     # Create an empty filter and add based on options
     flt = VCFFilter()
+    flt.emit_type = options.emit
+    flt.verbose = options.verbose
+    if options.buffer_function:
+        if not options.buffer_size:
+            exit('--buffer_function requires --buffer_size')
+        flt.buffer_function = options.buffer_function
+        flt.buffer_size = options.buffer_size
+    # Check to see if we are performing proximity checks
     flt.log("Starting Analysis...")
     # Check to see if we are performing union checks
     if options.intersect_vcf != None:
@@ -135,8 +279,12 @@ def main(argv):
     if options.map_file != None:
         flt.populate_map(options.map_file)
     # Check for chrom based filters
+    if options.skip_chrom and options.keep_chrom:
+        exit("Cannot specify --keep_chrom AND --skip_chrom")
     if options.skip_chrom:
         flt.skip_chroms = set(options.skip_chrom)
+    if options.keep_chrom:
+        flt.keep_chroms = set(options.keep_chrom)
     # Check for field based filters, can be either a thresh OR percentile, not both
     if options.field and (options.field or options.percentile):
         flt.field = options.field
@@ -156,17 +304,36 @@ def main(argv):
         flt.qual = "QUAL"
         flt.thresh = flt.get_percentile_cutoff(args[0],options.percentile)
         print("QUAL THRESH: {}".format(flt.thresh),file=sys.stderr)
+    if options.repetitive:
+        flt.populate_repeat(options.repetitive)
     if options.out != sys.stdout:
         flt.out = open(options.out,'w')
     # Check for FILTER based filters
     if options.filter:
         flt.filter = options.filter
+    if options.allelic:
+        flt.allelic = options.allelic
+    # Check for LD based filters
+    if options.ld_file:
+        if not options.max_ld:
+            exit("--ld_file option requires --max_ld parameter")
+        flt.max_ld = options.max_ld
+        flt.populate_ld(options.ld_file)
 
     # Process input files
     for filename in args:
+        # Check if we are filtering proximity:
+        if options.not_within:
+            flt.not_within = options.not_within
         flt.process(filename)
-
+    if flt.verbose:
+        flt.filter_totals()
     flt.log("... analysis ended")
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv[1:]))
+
+
+
+
+

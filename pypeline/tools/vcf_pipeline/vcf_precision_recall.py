@@ -3,11 +3,12 @@ from __future__ import print_function,with_statement,division
 from optparse import OptionParser
 import sys
 import re
+import os
 from collections import defaultdict
 
 
 class VCF_PR(object):
-    verbose = False
+    verbose = True
     log = sys.stderr
 
     def __init__(self,map_file,report_file,flt=".*"):
@@ -39,16 +40,17 @@ class VCF_PR(object):
         with open(report_file,'r') as report:
             while not "[Data]" == report.readline().strip():
                 pass
-            header = report.readline()
+            header = report.readline().strip().split('\t')
+            f1_index = header.index('Allele1 - Forward')
+            f2_index = header.index('Allele2 - Forward')
             for line in report:
+                fields = line.strip().split()
                 snp,id,f1,f2,t1,t2,ab1,ab2 = line.strip().split()[0:8]
                 if snp not in self.snp_map:
                     #print("{} not id map".format(snp),file=self.log)
                     continue
                 self.gold[id][self.snp_map[snp]] = {
-                    'top':sorted([t1,t2]),
-                    'for':sorted([f1,f2]),
-                    'ab' :sorted([ab1,ab2])
+                    'for':sorted([fields[f1_index],fields[f2_index]]),
                 }
 
     def relevent(self, vcf_file, rank='VQSLOD',cutoff=None):
@@ -69,8 +71,9 @@ class VCF_PR(object):
                     # Reduce the gold standards SNPs to indiv we see here
                     for i in set(self.gold.keys()).difference(indiv):
                         del self.gold[i]
+                    if self.verbose:
+                        print("Found SNP data for {}".format(",".join(self.gold.keys())),file=self.log)
                 else:                                # Variant line
-                    import pdb; pdb.set_trace()
                     fields = line.strip().split()
                     inds = fields[9:]
                     chrom = fields[0].replace('chr','')
@@ -81,7 +84,7 @@ class VCF_PR(object):
                     filter = fields[6]
                     if filter == 'LowQual' or (chrom,pos) not in self.snp_set or ',' in alt:
                         continue
-                    # Extract the score
+                    # Extract the score, QUAL is in a seperate field
                     if rank == 'QUAL':
                         score = float(fields[5])
                     else:
@@ -122,30 +125,31 @@ class VCF_PR(object):
                         
     def precision(self,ranked_list):
         true_pos = [i for i in ranked_list if i[1] == 1]
-        true_neg = [i for i in ranked_list if i[1] == -1]
-        if len(true_pos) == 0 and len(true_neg) == 0:
+        false_pos = [i for i in ranked_list if i[1] == -1]
+        if len(true_pos) == 0 and len(false_pos) == 0:
             return 0
-        return(len(true_pos)/(len(true_pos)+len(true_neg)))
+        return(len(true_pos)/(len(true_pos)+len(false_pos)))
 
-    def recall(self,ranked_list):
+    def recall(self,ranked_list,total):
         true_pos = [i for i in ranked_list if i[1] == 1]
-        return(len(true_pos))
+        return(len(true_pos)/total)
 
-    def print_curve(self,relevent,header=False):
+    def print_curve(self,relevent,header=False,model_name="VQSLOD"):
         if self.verbose:
-            print("Calculating Precision Recall",file=self.log)
-            print(".... the number of items predicted: {}".format(len(relevent)),file=self.log)
+            print("Calculating Precision Recall for {}".format(model_name),file=self.log)
+            print(".... the num of items predicted: {}".format(len(relevent)),file=self.log)
             print(".... the number of snps: {}".format(len(self.snp_set)),file=self.log)
             print(".... percentage of snps seen {}".format((len(self.seen.intersection(self.snp_set))/len(self.snp_set))),file=self.log)
             
         if header:
             print("rank,precision,recall,score,correct,indiv,chrom,pos,emp_geno,ref_geno")
+        total = len([i for i in relevent if i[1] == 1])
         for i in range(1,len(relevent)):
             print('{},{},{},{}'.format(
-                self.rank,
+                model_name,
                 self.precision(relevent[0:i]),
-                self.recall(relevent[0:i]),
-                ','.join(map(str,relevent[i]))
+                self.recall(relevent[0:i],total),
+                ','.join(map(str,relevent[i-1]))
             ))
             
 def main(argv):
@@ -156,25 +160,37 @@ def main(argv):
     parser = OptionParser()
     parser.add_option('-v', '--verbose', default=False, action='store_true')
     parser.add_option('--final_report',default=None, type=str, help='Final Report contain "Gold Standard" variant calls.')
-    parser.add_option('--input_vcf',default=None, type=str,help="input VCF file")
+    parser.add_option('--model_names',default='VQSLOD',type=str,action="callback",callback=split_comma,help="provide one model name per vcf file to distinguish in output")
+    parser.add_option('--input_vcf',default=None, action="append", type=str,help="input VCF file")
     parser.add_option('--map_file',default=None, type=str,help="PLINK type map file for snp positions")
-    parser.add_option('--rank', type=str, action="callback", callback=split_comma, help='comman seperated list of ranking field for PR curve')
+    parser.add_option('--single_rank', default=None, type=str, action="callback", callback=split_comma, help='comma seperated lists of rankings to be done on the first VCF only')
+    parser.add_option('--single_rank_cutoff', default=None, action="callback", callback=split_comma,type=str, help="comma seperated list for cutoffs for ranking, will not assess any variants below this ranking")
+    parser.add_option('--rank', type=str, help='ranking field for PR curve')
+    parser.add_option('--rank_cutoff', default=0, type=float, help="cutoff for ranking, will not assess any variants below this ranking")
     parser.add_option('--filter', default=".*", type=str, help="filter the gold standard using a regex, e.g. '^chr1'")
-    parser.add_option('--rank_cutoff', default=None, action="callback", callback=split_comma,type=str, help="comma seperated list for cutoffs for ranking, will not assess any variants below this ranking")
-    parser.add_option('-o','--out', default=sys.stdout )
     options, args = parser.parse_args(argv)
 
     if not options.final_report and options.input_vcf and options.map_file:
         raise Exception("Must have all three input files")
     PR = VCF_PR(options.map_file, options.final_report,options.filter)
-    PR.verbose = True
-    for i,rank in enumerate(options.rank):
-        print("Printing PR for {} cutoff at {}".format(rank,options.rank_cutoff[i]), file=sys.stderr)
-        rel= PR.relevent(options.input_vcf,rank,options.rank_cutoff[i])
-        if i == 0:
-            PR.print_curve(rel,header=True)
-        else:
-            PR.print_curve(rel,header=False)
+
+
+    for j,vcf in enumerate(options.input_vcf):
+       print("Printing PR for {} using {} cutoff at {}".format(os.path.basename(vcf),options.rank,options.rank_cutoff), file=sys.stderr)
+       model_name = options.model_names[j]
+       rel= PR.relevent(options.input_vcf[j],options.rank,options.rank_cutoff)
+       if j == 0:
+           PR.print_curve(rel,header=True,model_name=model_name)
+       else:
+           PR.print_curve(rel,header=False,model_name=model_name)
+    if options.single_rank:
+        for i,rank in enumerate(options.single_rank):
+            print("Printing PR for {} using {} cutoff at {}".format(os.path.basename(options.input_vcf[0]),rank,options.single_rank_cutoff[i]), file=sys.stderr)
+            model_name = rank
+            rel= PR.relevent(options.input_vcf[0],rank,options.single_rank_cutoff[i])
+            PR.print_curve(rel,header=False,model_name=model_name)
+
+
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv[1:]))
