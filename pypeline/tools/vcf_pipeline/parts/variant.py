@@ -391,13 +391,8 @@ def build_variant_nodes(options,reference, group, dependencies = ()):
     samtools_variants = samtools_variants.build_node()
     gatk_variants = gatk_variants.build_node()
  
-<<<<<<< HEAD
     # Build the Variant Filtering Nodes
     intersect_variants = VariantFilterNode.customize(
-=======
-    # Find the intersect between samtools and GATK
-    union_variants = VariantFilterNode.customize(
->>>>>>> 6275034865dd67411b85fdb2e57c02b88ecd591e
         reference = reference['Path'],
         infile = gatk_outfile,
         outfile = os.path.join(
@@ -407,12 +402,8 @@ def build_variant_nodes(options,reference, group, dependencies = ()):
             "--intersect_vcf" : gatk_outfile.replace(
                 options.makefile['intersect_vcf']['replace'],
                 options.makefile['intersect_vcf']['with']
-<<<<<<< HEAD
-            )
-=======
             ),
             "--emit": "pass"
->>>>>>> 6275034865dd67411b85fdb2e57c02b88ecd591e
         },
         options = options,
         dependencies = [gatk_variants,samtools_variants]
@@ -461,52 +452,6 @@ def build_merge_node(groups,prefix,options,dependencies = ()):
         dependencies = dependencies
     )
     intersect_merge = intersect_merge.build_node()
-
-<<<<<<< HEAD
-   #intersect_qual = VariantFilterNode.customize(
-   # reference = prefix['Path'],
-   #    infile = os.path.join(options.makefile['OutDir'],"MERGED.vcf"),
-   #    outfile = os.path.join(options.makefile['OutDir'],"MERGED_QUAL.vcf"),
-   #    filters = {
-   #        "--percentile" : options.makefile['vcf_percentile_threshold'],
-   #        "--skip_chrom" : "chr1"
-   #    },
-   #    options = options,
-   #    dependencies = dependencies + [intersect_merge]
-   #)
-   #intersect_qual = intersect_qual.build_node()
-
-   #intersect_map_file = VariantFilterNode.customize(
-   #    reference = prefix['Path'],
-   #    infile = os.path.join(options.makefile['OutDir'],"MERGED.vcf"),
-   #    outfile = os.path.join(options.makefile['OutDir'],"MERGED_SNP_LIST.vcf"),
-   #    filters = {
-   #        "--map_file" : options.makefile['map_file'],
-   #        "--skip_chrom" : "chr1"
-   #    },
-   #    options = options,
-   #    dependencies = dependencies + [intersect_merge]
-   #)
-   #intersect_map_file = intersect_map_file.build_node()
-
-   #intersect_thresh = VariantFilterNode.customize(
-   #    reference = prefix['Path'],
-   #    infile = os.path.join(options.makefile['OutDir'],"MERGED.vcf"),
-   #    outfile = os.path.join(options.makefile['OutDir'],"MERGED_THRESH.vcf"),
-   #    filters = {
-   #        "--num_call_sets" : options.makefile['num_call_sets'],
-   #        "--skip_chrom" : "chr1",
-   #        "--percentile" : options.makefile['vcf_percentile_threshold']
-   #    },
-   #    options = options,
-   #    dependencies = dependencies + [intersect_merge]
-   #)
-   #intersect_thresh = intersect_thresh.build_node()
-
-    return MetaNode(description = "SNP Merge node",
-        dependencies = [intersect_merge]
-        #dependencies = [intersect_map_file, intersect_thresh, intersect_qual]
-=======
 
 #   annotate_merged = VariantAnnotateNode.customize(
 #       infile = os.path.join(options.makefile['OutDir'],
@@ -597,7 +542,6 @@ def build_merge_node(groups,prefix,options,dependencies = ()):
                          #gatk_merge
                           intersect_merge
                          ]
->>>>>>> 6275034865dd67411b85fdb2e57c02b88ecd591e
     )
     
 def build_recalibration_node(group,reference,options,dependencies = ()):
@@ -830,7 +774,6 @@ def chain(pipeline, options, makefiles):
             ]
             # Here we have intersections between gatk and samtools
             # merge them so we can choose variants from multiple calling groups
-<<<<<<< HEAD
            #groups = [i['Group'] for i in makefile['Targets']]
            #merge_node = [build_merge_node(
            #    groups,
@@ -849,32 +792,4 @@ def chain(pipeline, options, makefiles):
            #   ) for group in makefile['Targets']
            #]
     return variant_nodes #+ merge_node #+ recal_nodes
-=======
-            groups = [i['Group'] for i in makefile['Targets']]
-            merge_node = [build_merge_node(
-                groups,
-                makefile['Prefixes'][prefix],
-                options,
-                variant_nodes
-            )]
-            # Build recalibration nodes using two classes of nodes
-            # known snps as well as snps that occur in 
-            recal_nodes = [
-               build_recalibration_node(
-                   group,
-                   makefile['Prefixes'][prefix],
-                   options,
-                   merge_node
-               ) for group in makefile['Targets']
-            ]
-            snp_list = [
-                build_snp_list(
-                groups,
-                makefile['Prefixes'][prefix],
-                options,
-                recal_nodes
-                )
-            ]
-    return variant_nodes + merge_node + recal_nodes + snp_list
->>>>>>> 6275034865dd67411b85fdb2e57c02b88ecd591e
             
