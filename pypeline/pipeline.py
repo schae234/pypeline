@@ -47,13 +47,14 @@ class Pypeline:
                 self._nodes.append(node)
 
 
-    def run(self, max_running = 1, dry_run = False, collapse = True, verbose = True):
+    def run(self, max_running = 6, dry_run = False, collapse = True, verbose = True):
         try:
             nodegraph = NodeGraph(self._nodes)
         except NodeGraphError, error:
             ui.print_err(error, file = sys.stderr)
             return False
 
+        # calculate remaining nodes
         remaining = set(nodegraph.iterflat())
         for node in remaining:
             if node.threads > max_running:
@@ -69,7 +70,7 @@ class Pypeline:
         running = {}
         interrupted_once = errors = has_refreshed = has_started_any = False
         pool = multiprocessing.Pool(max_running, _init_worker)
-
+        # Run node commands
         while running or remaining:
             try:
                 errors |= not self._poll_running_nodes(running, nodegraph)
