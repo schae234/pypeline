@@ -62,7 +62,7 @@ class Reads:
             input_missing  = missing_files(self.nodes[0].input_files)
             output_missing = missing_files(self.nodes[0].output_files)
             if input_missing and not output_missing:
-                self.nodes = ()
+                    self.nodes = ()
 
 
     def _init_raw_reads(self, config, record):
