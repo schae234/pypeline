@@ -98,7 +98,7 @@ def main(argv):
     # available pipeline commands
     commands = {
         "mkfile" : mkfile, 
-        "run" : variant.chain,
+        "run" : variant.chain
         }
 
     # pop off the pipeline command
