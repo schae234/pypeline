@@ -97,16 +97,16 @@ def build_pipeline_trimming(config, makefile):
 def build_pipeline_full(config, makefile, return_nodes = True):
     targets = []
     features = makefile["Options"]["Features"]
-	# target_name : M992 (usually only one)
+	# target_name : M992 (usually only one / Makefile for hapmap purposes)
     for (target_name, sample_records) in makefile["Targets"].iteritems():
-        prefixes = []
 		# prefixes: nuclear and mito
+        prefixes = []
         for (prefix_name, prefix) in makefile["Prefixes"].iteritems():
-            samples = []
 			# Sample: M992
+            samples = []
             for (sample_name, library_records) in sample_records.iteritems():
-                libraries = []
 				# library_name: GATCAG
+                libraries = []
                 for (library_name, barcode_records) in library_records.iteritems():
                     lanes = []
 					# barcode: M922_8 (not really a barcode)
@@ -369,12 +369,14 @@ def main(argv):
             config.destination = old_destination
         return 0
 
+    # Assign the appropriate function to build the pipeline
     pipeline_func = build_pipeline_trimming
     if config.targets:
         pipeline_func = build_pipeline_targets
     elif os.path.basename(sys.argv[0]) != "trim_pipeline":
         pipeline_func = build_pipeline_full
-
+    
+    # Create an empty pipeline object (will be populated based on makefile(s))
     pipeline = pypeline.Pypeline(config)
     for makefile in makefiles:
         # If a destination is not specified, save results in same folder as makefile
@@ -382,7 +384,7 @@ def main(argv):
         old_destination = config.destination
         if old_destination is None:
             config.destination = os.path.dirname(filename)
-
+        # Run the appropriate pipeline function (designated above)
         try:
             nodes = pipeline_func(config, makefile)
         except pypeline.node.NodeError, e:
@@ -390,7 +392,7 @@ def main(argv):
             return 1
 
         config.destination = old_destination
-
+        # add the nodes for the makefile to the pipeline
         pipeline.add_nodes(nodes)
 
     if config.targets:

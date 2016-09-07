@@ -52,8 +52,8 @@ class Reads:
             assert False, "Unexpected data type in Reads(): %s" % (repr(lane_type))
 
         # Check Quality Score
-        if not self._check_raw_read_quality(record):
-            assert False, "Quality Scores do not match: %s" % (repr(record["Data"]))
+#        if not self._check_raw_read_quality(record):
+#            assert False, "Quality Scores do not match: %s" % (repr(record["Data"]))
 
         for name in record["Options"]["ExcludeReads"]:
             self.files.pop(name, None)
@@ -74,6 +74,7 @@ class Reads:
         output_prefix = os.path.join(self.folder, "reads")
         files = record["Data"]
         if ("SE" in files):
+            # This returns a named tuple containing the parameters for the AdapterRemoval Node
             command = SE_AdapterRemovalNode.customize(input_files   = files["SE"],
                                                       output_prefix = output_prefix,
                                                       output_format = output_format,
@@ -116,7 +117,7 @@ class Reads:
             if re.match("^.*gz|gzip$",fastq_file_name):
                 import gzip
                 fastq_file = gzip.open(fastq_file_name, 'rb')
-            elif re.match("^.*.bz2|bzip$"):
+            elif re.match("^.*.bz2|bzip$",fastq_file_name):
                 import bz2
                 fastq_file = bz2.BZ2File(fastq_file_name)
             else:
@@ -138,9 +139,8 @@ class Reads:
                 return 64
         # Test the files
         files = record["Data"]
-        for file_names in files.itervalues():
-            for file_name in file_names:
-                if detect_phred_offset(file_name) != self.quality_offset:
-                    return False
+        for file_name in files.itervalues():
+            if detect_phred_offset(file_name) != self.quality_offset:
+                return False
         # all the files detected were what expected
         return True 
